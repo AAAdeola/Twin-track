@@ -1,0 +1,74 @@
+.quote-container {
+  max-width: 400px;
+  margin: 0 auto;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.quote-container h2 {
+  text-align: center;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.quote-container input {
+  display: block;
+  width: 100%;
+  margin-bottom: 15px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 16px;
+}
+
+.quote-container button {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  background-color: #000;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.quote-container button:hover {
+  background-color: #333;
+}
+
+.overlay {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+@media (max-width: 480px) {
+  .quote-container {
+    margin: 10px;
+    padding: 15px;
+  }
+
+  .quote-container h2 {
+    font-size: 1.2em;
+  }
+
+  .quote-container input,
+  .quote-container button {
+    font-size: 14px;
+    padding: 8px;
+  }
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 1s ease-in-out;
+}
