@@ -5,8 +5,7 @@ import App from './App';
 import reportWebVitals from './reportWebVitals';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
-// In src/index.js or src/App.js
-import './index.css'; // or './QuoteForm.css' if that's your file
+
 
 
 

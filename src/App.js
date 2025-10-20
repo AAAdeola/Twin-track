@@ -6,7 +6,8 @@ import About from "./Components/About/About";
 import Services from"./Components/Services/Services";
 import ServicesSection from"./Components/Achivement/ServicesSection";
 import Portfolio from "./Components/Portfolio/Portfolio";
-// import QuotePage from "./Components/QuoteSection/QuotePage";
+import QuotePage from "./Components/QuoteSection/QuotePage";
+import Footer from "./Components/Footer/Footer";
 
 function App() {
   const [showLanding, setShowLanding] = useState(true);
@@ -39,7 +40,8 @@ function App() {
           <Services/>
           <ServicesSection/>
           <Portfolio/>
-          {/* <QuotePage/> */}
+          <QuotePage/> 
+          <Footer/>
         </>
       )}
     </>
