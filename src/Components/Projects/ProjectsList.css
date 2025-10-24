@@ -218,6 +218,7 @@
     opacity: 0;
     transform: translateY(6px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -236,4 +237,62 @@
     margin-left: 0;
     padding: 16px;
   }
+}
+
+.tt-filters {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.2rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.tt-search-box {
+  display: flex;
+  align-items: center;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  padding: 6px 10px;
+  flex: 1;
+  max-width: 350px;
+  background: #fff;
+}
+
+.tt-search-box input {
+  border: none;
+  outline: none;
+  margin-left: 8px;
+  flex: 1;
+  font-size: 0.95rem;
+}
+
+.tt-filter-box {
+  display: flex;
+  align-items: center;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  padding: 6px 10px;
+  background: #fff;
+}
+
+.tt-filter-box select {
+  border: none;
+  outline: none;
+  background: transparent;
+  margin-left: 8px;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.search-icon,
+.filter-icon {
+  color: #666;
+  font-size: 1rem;
+}
+
+.no-projects {
+  text-align: center;
+  color: #888;
+  margin-top: 20px;
 }

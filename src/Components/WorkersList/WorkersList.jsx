@@ -6,6 +6,7 @@ import {
   FiUser,
   FiSearch,
   FiBell,
+  FiFilter,
 } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../Sidebar/Sidebar";
@@ -45,11 +46,20 @@ const WorkersList = () => {
       ],
       suspended: false,
     },
+    {
+      id: 3,
+      name: "Daniel Lee",
+      projects: [],
+      suspended: true,
+    },
   ]);
 
   const [selectedTasks, setSelectedTasks] = useState({});
   const [showConfirm, setShowConfirm] = useState(false);
   const [currentWorker, setCurrentWorker] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState("All");
+
   const navigate = useNavigate();
 
   const toggleTaskSelect = (workerId, projectId, task) => {
@@ -105,16 +115,45 @@ const WorkersList = () => {
     );
   };
 
+  const filteredWorkers = workers.filter((w) => {
+    const matchesSearch = w.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus =
+      filterStatus === "All" ||
+      (filterStatus === "Active" && !w.suspended) ||
+      (filterStatus === "Suspended" && w.suspended);
+    return matchesSearch && matchesStatus;
+  });
+
   return (
     <div className="workers-page">
       <Sidebar />
 
       <main className="workers-main">
         <header className="topbar">
-          <div className="search-bar">
-            <FiSearch />
-            <input type="text" placeholder="Search workers..." />
+          <div className="search-filter-row">
+            <div className="search-bar">
+              <FiSearch />
+              <input
+                type="text"
+                placeholder="Search workers..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+
+            <div className="filter-box">
+              <FiFilter />
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+              >
+                <option value="All">All Workers</option>
+                <option value="Active">Active</option>
+                <option value="Suspended">Suspended</option>
+              </select>
+            </div>
           </div>
+
           <div className="topbar-icons">
             <FiBell />
             <FiUser />
@@ -135,85 +174,93 @@ const WorkersList = () => {
                 </tr>
               </thead>
               <tbody>
-                {workers.map((worker) => (
-                  <tr
-                    key={worker.id}
-                    className={worker.suspended ? "suspended" : ""}
-                  >
-                    <td>
-                      <div className="worker-info">
-                        <FiUser /> {worker.name}
-                      </div>
-                    </td>
+                {filteredWorkers.length > 0 ? (
+                  filteredWorkers.map((worker) => (
+                    <tr
+                      key={worker.id}
+                      className={worker.suspended ? "suspended" : ""}
+                    >
+                      <td>
+                        <div className="worker-info">
+                          <FiUser /> {worker.name}
+                        </div>
+                      </td>
 
-                    <td>
-                      {worker.projects.length === 0 ? (
-                        <span className="no-projects">No active projects</span>
-                      ) : (
-                        worker.projects.map((project) => (
-                          <div key={project.id} className="project-block">
-                            <strong>{project.name}</strong>
-                            <ul>
-                              {project.tasks.map((task) => {
-                                const key = `${worker.id}-${project.id}-${task}`;
-                                return (
-                                  <li key={key}>
-                                    <label>
-                                      <input
-                                        type="checkbox"
-                                        checked={!!selectedTasks[key]}
-                                        onChange={() =>
-                                          toggleTaskSelect(
-                                            worker.id,
-                                            project.id,
-                                            task
-                                          )
-                                        }
-                                      />
-                                      {task}
-                                    </label>
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                          </div>
-                        ))
-                      )}
-                    </td>
-
-                    <td>
-                      {worker.projects.map((p) => (
-                        <div key={p.id}>{p.supervisor}</div>
-                      ))}
-                    </td>
-
-                    <td className="actions">
-                      <button
-                        className="remove-btn"
-                        onClick={() => handleRemoveClick(worker)}
-                      >
-                        <FiTrash2 /> Remove
-                      </button>
-
-                      <button
-                        className={`suspend-btn ${
-                          worker.suspended ? "retain" : "suspend"
-                        }`}
-                        onClick={() => toggleSuspend(worker.id)}
-                      >
-                        {worker.suspended ? (
-                          <>
-                            <FiCheck /> Retain
-                          </>
+                      <td>
+                        {worker.projects.length === 0 ? (
+                          <span className="no-projects">No active projects</span>
                         ) : (
-                          <>
-                            <FiSlash /> Suspend
-                          </>
+                          worker.projects.map((project) => (
+                            <div key={project.id} className="project-block">
+                              <strong>{project.name}</strong>
+                              <ul>
+                                {project.tasks.map((task) => {
+                                  const key = `${worker.id}-${project.id}-${task}`;
+                                  return (
+                                    <li key={key}>
+                                      <label>
+                                        <input
+                                          type="checkbox"
+                                          checked={!!selectedTasks[key]}
+                                          onChange={() =>
+                                            toggleTaskSelect(
+                                              worker.id,
+                                              project.id,
+                                              task
+                                            )
+                                          }
+                                        />
+                                        {task}
+                                      </label>
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            </div>
+                          ))
                         )}
-                      </button>
+                      </td>
+
+                      <td>
+                        {worker.projects.map((p) => (
+                          <div key={p.id}>{p.supervisor}</div>
+                        ))}
+                      </td>
+
+                      <td className="actions">
+                        <button
+                          className="remove-btn"
+                          onClick={() => handleRemoveClick(worker)}
+                        >
+                          <FiTrash2 /> Remove
+                        </button>
+
+                        <button
+                          className={`suspend-btn ${
+                            worker.suspended ? "retain" : "suspend"
+                          }`}
+                          onClick={() => toggleSuspend(worker.id)}
+                        >
+                          {worker.suspended ? (
+                            <>
+                              <FiCheck /> Retain
+                            </>
+                          ) : (
+                            <>
+                              <FiSlash /> Suspend
+                            </>
+                          )}
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="4" className="no-results">
+                      No workers found.
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>

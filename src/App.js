@@ -1,7 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Landing from "./Components/Landing/Landing";
-import Login from "./Components/Login/Login";
 import Home from "./Components/Home/Home";
 import About from "./Components/About/About";
 import Services from "./Components/Services/Services";
@@ -14,32 +12,16 @@ import ProjectsList from "./Components/Projects/ProjectsList";
 import ProjectDashboard from "./Components/ProjectDashboard/ProjectDashboard";
 import WorkersList from "./Components/WorkersList/WorkersList";
 import SupervisorsList from "./Components/SupervisorsList/SupervisorsList";
+import Login from "./Components/Login/Login";
+import Landing from "./Components/Landing/Landing";
 
 function App() {
-  const [showLanding, setShowLanding] = useState(true);
-  const [showLogin, setShowLogin] = useState(false);
-  const [showHome, setShowHome] = useState(false);
-
-  useEffect(() => {
-    const timer1 = setTimeout(() => {
-      setShowLanding(false);
-      setShowLogin(true);
-    }, 5000);
-    return () => clearTimeout(timer1);
-  }, []);
-
-  const handleLoginSuccess = () => {
-    setShowLogin(false);
-    setShowHome(true);
-  };
+  const [showLanding] = useState(false);
+  const [showLogin] = useState(false);
+  const [showHome] = useState(true);
 
   return (
     <Router>
-      {/* Always render router shell */}
-      {showLanding && <Landing />}
-
-      {showLogin && <Login onLoginSuccess={handleLoginSuccess} />}
-
       {showHome && (
         <Routes>
           <Route
@@ -56,14 +38,18 @@ function App() {
               </>
             }
           />
+
           <Route path="/MainDashboard" element={<Dashboard />} />
           <Route path="/projects" element={<ProjectsList />} />
           <Route path="/project/:id" element={<ProjectDashboard />} />
           <Route path="/workers" element={<WorkersList />} />
           <Route path="/supervisors" element={<SupervisorsList />} />
+
+          <Route path="/Login" element={<Login />} />
+
+          <Route path="/Landing" element={<Landing />} />
         </Routes>
       )}
-      
     </Router>
   );
 }

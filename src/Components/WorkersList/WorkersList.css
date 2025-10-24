@@ -196,3 +196,46 @@
   background: #b91c1c;
   color: white;
 }
+
+.search-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.search-bar,
+.filter-box {
+  display: flex;
+  align-items: center;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  background: #fff;
+  padding: 6px 10px;
+}
+
+.search-bar input {
+  border: none;
+  outline: none;
+  margin-left: 8px;
+  font-size: 0.95rem;
+}
+
+.filter-box select {
+  border: none;
+  outline: none;
+  margin-left: 8px;
+  font-size: 0.95rem;
+  background: transparent;
+  cursor: pointer;
+}
+
+.filter-box svg,
+.search-bar svg {
+  color: #666;
+}
+
+.no-results {
+  text-align: center;
+  color: #777;
+  padding: 1rem;
+}

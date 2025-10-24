@@ -1,8 +1,10 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "./Login.css";
 
-const Login = ({ onLoginSuccess }) => {
+const Login = () => {
   const [formData, setFormData] = useState({ emailOrPhone: "", password: "" });
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -12,13 +14,11 @@ const Login = ({ onLoginSuccess }) => {
     e.preventDefault();
     console.log(formData);
 
-    // ✅ Simulate successful login
-    onLoginSuccess(); // This will navigate to Home
+    navigate("/MainDashboard");
   };
 
   return (
     <div className="login-page">
-      {/* Background overlay */}
       <div
         className="login-bg"
         style={{
@@ -26,7 +26,6 @@ const Login = ({ onLoginSuccess }) => {
         }}
       ></div>
 
-      {/* Login form */}
       <div className="login-container shadow-lg p-4">
         <div className="text-center mb-4">
           <img

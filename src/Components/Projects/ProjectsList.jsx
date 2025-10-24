@@ -5,9 +5,11 @@ import {
   FiCalendar,
   FiBell,
   FiUser,
+  FiSearch,
+  FiFilter,
 } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
-import Sidebar from "../Sidebar/Sidebar"; // ✅ Reusable Sidebar import
+import Sidebar from "../Sidebar/Sidebar";
 import AddNewProject from "../Add-New-Project/AddNewProject";
 import ConfirmDialog from "../ConfirmDialog/ConfirmDialog";
 import "./ProjectsList.css";
@@ -34,7 +36,7 @@ const ProjectsList = () => {
       id: 3,
       name: "Residential Villa Build",
       supervisors: ["Mark Brown", "Linda White"],
-      status: "Active",
+      status: "Completed",
       startDate: "2025-09-15",
     },
   ]);
@@ -42,6 +44,8 @@ const ProjectsList = () => {
   const [isAddProjectOpen, setIsAddProjectOpen] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
 
   const handleCreateProject = (newProject) => {
     const project = {
@@ -62,6 +66,15 @@ const ProjectsList = () => {
   const handleCardClick = (project) => {
     navigate(`/project/${project.id}`, { state: { project } });
   };
+
+  const filteredProjects = projects.filter((proj) => {
+    const matchesSearch = proj.name
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase());
+    const matchesStatus =
+      statusFilter === "All" || proj.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   return (
     <div className="tt-dashboard">
@@ -85,59 +98,90 @@ const ProjectsList = () => {
           </div>
         </div>
 
+        <div className="tt-filters">
+          <div className="tt-search-box">
+            <FiSearch className="search-icon" />
+            <input
+              type="text"
+              placeholder="Search projects..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          <div className="tt-filter-box">
+            <FiFilter className="filter-icon" />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="All">All Statuses</option>
+              <option value="Active">Active</option>
+              <option value="Pending">Pending</option>
+              <option value="Completed">Completed</option>
+            </select>
+          </div>
+
+          <button
+            className="tt-add-btn"
+            onClick={() => setIsAddProjectOpen(true)}
+          >
+            <FiPlus /> Add New Project
+          </button>
+        </div>
+
         <div className="tt-card">
           <div className="tt-card-top">
             <h2>All Projects</h2>
-            <button
-              className="tt-add-btn"
-              onClick={() => setIsAddProjectOpen(true)}
-            >
-              <FiPlus /> Add New Project
-            </button>
           </div>
 
           <div className="tt-card-body">
             <div className="tt-projects-grid">
-              {projects.map((proj) => (
-                <div
-                  key={proj.id}
-                  className="tt-project-card"
-                  onClick={() => handleCardClick(proj)}
-                >
-                  <div className="tt-project-header">
-                    <h3>{proj.name}</h3>
-                    <span
-                      className={`status-pill ${
-                        proj.status.toLowerCase() === "active"
-                          ? "completed"
-                          : proj.status.toLowerCase() === "pending"
-                          ? "inprogress"
-                          : "pending"
-                      }`}
-                    >
-                      {proj.status}
-                    </span>
-                  </div>
-
-                  <p className="muted">
-                    <strong>Supervisors:</strong> {proj.supervisors.join(", ")}
-                  </p>
-                  <p className="muted">
-                    <FiCalendar /> Start: {proj.startDate}
-                  </p>
-
-                  <button
-                    className="delete-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setProjectToDelete(proj);
-                      setShowDeleteModal(true);
-                    }}
+              {filteredProjects.length > 0 ? (
+                filteredProjects.map((proj) => (
+                  <div
+                    key={proj.id}
+                    className="tt-project-card"
+                    onClick={() => handleCardClick(proj)}
                   >
-                    <FiTrash2 />
-                  </button>
-                </div>
-              ))}
+                    <div className="tt-project-header">
+                      <h3>{proj.name}</h3>
+                      <span
+                        className={`status-pill ${
+                          proj.status.toLowerCase() === "active"
+                            ? "completed"
+                            : proj.status.toLowerCase() === "pending"
+                            ? "inprogress"
+                            : "pending"
+                        }`}
+                      >
+                        {proj.status}
+                      </span>
+                    </div>
+
+                    <p className="muted">
+                      <strong>Supervisors:</strong>{" "}
+                      {proj.supervisors.join(", ")}
+                    </p>
+                    <p className="muted">
+                      <FiCalendar /> Start: {proj.startDate}
+                    </p>
+
+                    <button
+                      className="delete-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setProjectToDelete(proj);
+                        setShowDeleteModal(true);
+                      }}
+                    >
+                      <FiTrash2 />
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <p className="no-projects">No projects found.</p>
+              )}
             </div>
           </div>
         </div>
