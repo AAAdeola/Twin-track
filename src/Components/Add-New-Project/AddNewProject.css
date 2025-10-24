@@ -1,0 +1,116 @@
+.tt-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 50;
+}
+
+.tt-modal-card {
+  background: #fff;
+  border-radius: 16px;
+  width: 480px;
+  padding: 28px;
+  position: relative;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+.tt-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  border: none;
+  background: none;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.tt-modal-head h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.tt-form .tt-row {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 16px;
+}
+
+.tt-row label {
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.tt-row input,
+.tt-row textarea,
+.tt-row select {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.supervisor-input {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.supervisor-input button {
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+.supervisor-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.supervisor-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f3f4f6;
+  padding: 6px 10px;
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+
+.remove-btn {
+  border: none;
+  background: none;
+  color: #ef4444;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.tt-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.tt-create {
+  background: #2563eb;
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.tt-cancel {
+  background: #e5e7eb;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+}
