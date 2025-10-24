@@ -19,7 +19,7 @@ const Sidebar = () => {
     { name: "Projects", path: "/projects", icon: <FiBriefcase /> },
     { name: "Workers", path: "/workers", icon: <FiUsers /> },
     { name: "Supervisors", path: "/supervisors", icon: <FiUserCheck /> },
-    { name: "Reports", path: "/reports", icon: <FiBarChart2 /> },
+    { name: "Materials", path: "/materials", icon: <FiBarChart2 /> },
     { name: "Settings", path: "/settings", icon: <FiSettings /> },
   ];
 

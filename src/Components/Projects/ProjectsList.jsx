@@ -12,6 +12,8 @@ import { useNavigate } from "react-router-dom";
 import Sidebar from "../Sidebar/Sidebar";
 import AddNewProject from "../Add-New-Project/AddNewProject";
 import ConfirmDialog from "../ConfirmDialog/ConfirmDialog";
+import UpdateProjectMaterialsModal from "../UpdateProjectMaterialsModal/UpdateProjectMaterialsModal";
+import ViewAllMaterialsModal from "../ViewAllMaterialsModal/ViewAllMaterialsModal";
 import "./ProjectsList.css";
 
 const ProjectsList = () => {
@@ -24,6 +26,12 @@ const ProjectsList = () => {
       supervisors: ["Michael Green", "Sarah Paul"],
       status: "Active",
       startDate: "2025-09-01",
+      materials: [
+        { name: "Cement", quantity: 30 },
+        { name: "Steel Rods", quantity: 15 },
+        { name: "Bricks", quantity: 200 },
+        { name: "Concrete", quantity: 40 },
+      ],
     },
     {
       id: 2,
@@ -31,6 +39,7 @@ const ProjectsList = () => {
       supervisors: ["John Doe"],
       status: "Pending",
       startDate: "2025-10-10",
+      materials: [{ name: "Concrete", quantity: 20 }],
     },
     {
       id: 3,
@@ -38,12 +47,23 @@ const ProjectsList = () => {
       supervisors: ["Mark Brown", "Linda White"],
       status: "Completed",
       startDate: "2025-09-15",
+      materials: [],
     },
+  ]);
+
+  const [availableMaterials] = useState([
+    { name: "Cement", quantity: 100 },
+    { name: "Steel Rods", quantity: 50 },
+    { name: "Bricks", quantity: 500 },
+    { name: "Concrete", quantity: 80 },
   ]);
 
   const [isAddProjectOpen, setIsAddProjectOpen] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState(null);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [selectedProject, setSelectedProject] = useState(null);
+  const [showViewMaterialsModal, setShowViewMaterialsModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
 
@@ -65,6 +85,28 @@ const ProjectsList = () => {
 
   const handleCardClick = (project) => {
     navigate(`/project/${project.id}`, { state: { project } });
+  };
+
+  const handleUpdateMaterials = (project, updates) => {
+    const updatedProjects = projects.map((p) => {
+      if (p.id === project.id) {
+        const updatedMaterials = [...p.materials];
+
+        updates.forEach((u) => {
+          const existing = updatedMaterials.find((m) => m.name === u.name);
+          if (existing) {
+            existing.quantity += u.quantity;
+          } else {
+            updatedMaterials.push({ name: u.name, quantity: u.quantity });
+          }
+        });
+
+        return { ...p, materials: updatedMaterials };
+      }
+      return p;
+    });
+
+    setProjects(updatedProjects);
   };
 
   const filteredProjects = projects.filter((proj) => {
@@ -138,47 +180,97 @@ const ProjectsList = () => {
           <div className="tt-card-body">
             <div className="tt-projects-grid">
               {filteredProjects.length > 0 ? (
-                filteredProjects.map((proj) => (
-                  <div
-                    key={proj.id}
-                    className="tt-project-card"
-                    onClick={() => handleCardClick(proj)}
-                  >
-                    <div className="tt-project-header">
-                      <h3>{proj.name}</h3>
-                      <span
-                        className={`status-pill ${
-                          proj.status.toLowerCase() === "active"
-                            ? "completed"
-                            : proj.status.toLowerCase() === "pending"
-                            ? "inprogress"
-                            : "pending"
-                        }`}
-                      >
-                        {proj.status}
-                      </span>
-                    </div>
+                filteredProjects.map((proj) => {
+                  const materialsToShow = proj.materials.slice(0, 2);
+                  const remainingCount =
+                    proj.materials.length - materialsToShow.length;
 
-                    <p className="muted">
-                      <strong>Supervisors:</strong>{" "}
-                      {proj.supervisors.join(", ")}
-                    </p>
-                    <p className="muted">
-                      <FiCalendar /> Start: {proj.startDate}
-                    </p>
-
-                    <button
-                      className="delete-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setProjectToDelete(proj);
-                        setShowDeleteModal(true);
-                      }}
+                  return (
+                    <div
+                      key={proj.id}
+                      className="tt-project-card large"
+                      onClick={() => handleCardClick(proj)}
                     >
-                      <FiTrash2 />
-                    </button>
-                  </div>
-                ))
+                      <div className="tt-project-header">
+                        <h3>{proj.name}</h3>
+                        <span
+                          className={`status-pill ${
+                            proj.status.toLowerCase() === "active"
+                              ? "completed"
+                              : proj.status.toLowerCase() === "pending"
+                              ? "inprogress"
+                              : "pending"
+                          }`}
+                        >
+                          {proj.status}
+                        </span>
+                      </div>
+
+                      <p className="muted">
+                        <strong>Supervisors:</strong>{" "}
+                        {proj.supervisors.join(", ")}
+                      </p>
+                      <p className="muted start-date">
+                        <FiCalendar /> Start: {proj.startDate}
+                      </p>
+
+                      <div className="tt-materials-section">
+                        {proj.materials.length > 0 ? (
+                          <div className="materials-list">
+                            <h4>Materials:</h4>
+                            <ul>
+                              {materialsToShow.map((mat, idx) => (
+                                <li key={idx}>
+                                  {mat.name} – <strong>{mat.quantity}</strong>
+                                </li>
+                              ))}
+                              {remainingCount > 0 && (
+                                <li
+                                  className="muted small view-more"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedProject(proj);
+                                    setShowViewMaterialsModal(true);
+                                  }}
+                                >
+                                  and {remainingCount} more...
+                                </li>
+                              )}
+                            </ul>
+                          </div>
+                        ) : (
+                          <p className="muted no-mat">
+                            No materials assigned yet
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="project-actions">
+                        <button
+                          className="increase-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedProject(proj);
+                            setShowUpdateModal(true);
+                          }}
+                        >
+                          <FiPlus /> Add / Increase Materials
+                        </button>
+
+                        <button
+                          className="delete-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setProjectToDelete(proj);
+                            setShowDeleteModal(true);
+                          }}
+                        >
+                          <FiTrash2 /> Delete
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
               ) : (
                 <p className="no-projects">No projects found.</p>
               )}
@@ -191,6 +283,25 @@ const ProjectsList = () => {
         <AddNewProject
           onClose={() => setIsAddProjectOpen(false)}
           onCreate={handleCreateProject}
+          availableMaterials={availableMaterials}
+        />
+      )}
+
+      {showUpdateModal && selectedProject && (
+        <UpdateProjectMaterialsModal
+          project={selectedProject}
+          availableMaterials={availableMaterials}
+          onUpdate={(updates) =>
+            handleUpdateMaterials(selectedProject, updates)
+          }
+          onClose={() => setShowUpdateModal(false)}
+        />
+      )}
+
+      {showViewMaterialsModal && selectedProject && (
+        <ViewAllMaterialsModal
+          project={selectedProject}
+          onClose={() => setShowViewMaterialsModal(false)}
         />
       )}
 
