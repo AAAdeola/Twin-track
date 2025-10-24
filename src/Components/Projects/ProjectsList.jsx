@@ -71,6 +71,7 @@ const ProjectsList = () => {
     const project = {
       id: projects.length + 1,
       ...newProject,
+      name: newProject.name || newProject.projectName,
     };
     setProjects([...projects, project]);
   };
@@ -110,7 +111,8 @@ const ProjectsList = () => {
   };
 
   const filteredProjects = projects.filter((proj) => {
-    const matchesSearch = proj.name
+    const projectName = proj.name || proj.projectName || "";
+    const matchesSearch = projectName
       .toLowerCase()
       .includes(searchQuery.toLowerCase());
     const matchesStatus =
@@ -192,12 +194,12 @@ const ProjectsList = () => {
                       onClick={() => handleCardClick(proj)}
                     >
                       <div className="tt-project-header">
-                        <h3>{proj.name}</h3>
+                        <h3>{proj.name || proj.projectName}</h3>
                         <span
                           className={`status-pill ${
-                            proj.status.toLowerCase() === "active"
+                            proj.status?.toLowerCase() === "active"
                               ? "completed"
-                              : proj.status.toLowerCase() === "pending"
+                              : proj.status?.toLowerCase() === "pending"
                               ? "inprogress"
                               : "pending"
                           }`}
@@ -208,10 +210,10 @@ const ProjectsList = () => {
 
                       <p className="muted">
                         <strong>Supervisors:</strong>{" "}
-                        {proj.supervisors.join(", ")}
+                        {proj.supervisors?.join(", ") || "None"}
                       </p>
                       <p className="muted start-date">
-                        <FiCalendar /> Start: {proj.startDate}
+                        <FiCalendar /> Start: {proj.startDate || "Not set"}
                       </p>
 
                       <div className="tt-materials-section">
@@ -308,7 +310,7 @@ const ProjectsList = () => {
       {showDeleteModal && projectToDelete && (
         <ConfirmDialog
           title="Confirm Deletion"
-          message={`Are you sure you want to delete "${projectToDelete.name}"? This action cannot be undone.`}
+          message={`Are you sure you want to delete "${projectToDelete.name || projectToDelete.projectName}"? This action cannot be undone.`}
           onConfirm={handleDelete}
           onCancel={() => setShowDeleteModal(false)}
         />

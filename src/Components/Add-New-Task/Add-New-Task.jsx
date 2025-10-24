@@ -1,24 +1,78 @@
 import React, { useState } from "react";
 import "./Add-New-Task.css";
 
-const AddNewTask = ({ onClose }) => {
+const AddNewTask = ({ onClose, onCreate, projectSupervisors = [] }) => {
+  const mockWorkers = [
+    "John Doe",
+    "Mary James",
+    "Ali Ibrahim",
+    "Grace Obi",
+    "Tunde Bako",
+  ];
+
   const [formData, setFormData] = useState({
     taskName: "",
     description: "",
-    assignedTo1: "",
-    assignedTo2: "",
+    assignedSupervisors: [],
+    assignedWorkers: [],
     priority: "Low",
     status: "Not Started",
     dueDate: "",
   });
 
+  const [selectedSupervisor, setSelectedSupervisor] = useState("");
+  const [selectedWorker, setSelectedWorker] = useState("");
+
   const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
 
+  const handleAddSupervisor = () => {
+    if (
+      selectedSupervisor &&
+      !formData.assignedSupervisors.includes(selectedSupervisor)
+    ) {
+      setFormData({
+        ...formData,
+        assignedSupervisors: [
+          ...formData.assignedSupervisors,
+          selectedSupervisor,
+        ],
+      });
+      setSelectedSupervisor("");
+    }
+  };
+
+  const handleRemoveSupervisor = (name) => {
+    setFormData({
+      ...formData,
+      assignedSupervisors: formData.assignedSupervisors.filter(
+        (s) => s !== name
+      ),
+    });
+  };
+
+  const handleAddWorker = () => {
+    if (selectedWorker && !formData.assignedWorkers.includes(selectedWorker)) {
+      setFormData({
+        ...formData,
+        assignedWorkers: [...formData.assignedWorkers, selectedWorker],
+      });
+      setSelectedWorker("");
+    }
+  };
+
+  const handleRemoveWorker = (name) => {
+    setFormData({
+      ...formData,
+      assignedWorkers: formData.assignedWorkers.filter((w) => w !== name),
+    });
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    // In real app you would submit to API/store
-    console.log("New Task created:", formData);
+    if (!formData.taskName.trim()) return;
+
+    onCreate?.(formData);
     onClose();
   };
 
@@ -26,17 +80,17 @@ const AddNewTask = ({ onClose }) => {
     <div className="tt-modal-overlay" onMouseDown={onClose}>
       <div
         className="tt-modal-card"
-        onMouseDown={(e) => {
-          e.stopPropagation();
-        }}
+        onMouseDown={(e) => e.stopPropagation()}
       >
-        <button className="tt-close" onClick={onClose} aria-label="Close">
+        <button className="tt-close" onClick={onClose}>
           ×
         </button>
 
         <div className="tt-modal-head">
-          <h3>Project Tasks</h3>
-          <p className="muted">Add a new task and assign team members</p>
+          <h3>Create New Task</h3>
+          <p className="muted">
+            Assign supervisors (from project) and workers (from database)
+          </p>
         </div>
 
         <form className="tt-form" onSubmit={handleSubmit}>
@@ -62,25 +116,76 @@ const AddNewTask = ({ onClose }) => {
             />
           </div>
 
-          <div className="tt-grid">
-            <div className="tt-row">
-              <label>Assigned To</label>
-              <input
-                name="assignedTo1"
-                value={formData.assignedTo1}
-                onChange={handleChange}
-                placeholder="John D."
-              />
+          <div className="tt-row">
+            <label>Assign Supervisors</label>
+            <div className="assign-select">
+              <select
+                value={selectedSupervisor}
+                onChange={(e) => setSelectedSupervisor(e.target.value)}
+              >
+                <option value="">Select Supervisor</option>
+                {projectSupervisors.length === 0 ? (
+                  <option disabled>No supervisors in project</option>
+                ) : (
+                  projectSupervisors.map((sup, idx) => (
+                    <option key={idx} value={sup}>
+                      {sup}
+                    </option>
+                  ))
+                )}
+              </select>
+              <button type="button" onClick={handleAddSupervisor}>
+                Add
+              </button>
             </div>
-            <div className="tt-row">
-              <label>Assigned To</label>
-              <input
-                name="assignedTo2"
-                value={formData.assignedTo2}
-                onChange={handleChange}
-                placeholder="Sarah K."
-              />
+            <ul className="assign-list">
+              {formData.assignedSupervisors.map((sup, idx) => (
+                <li key={idx}>
+                  {sup}
+                  <button
+                    type="button"
+                    className="remove-btn"
+                    onClick={() => handleRemoveSupervisor(sup)}
+                  >
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="tt-row">
+            <label>Assign Workers</label>
+            <div className="assign-select">
+              <select
+                value={selectedWorker}
+                onChange={(e) => setSelectedWorker(e.target.value)}
+              >
+                <option value="">Select Worker</option>
+                {mockWorkers.map((wrk, idx) => (
+                  <option key={idx} value={wrk}>
+                    {wrk}
+                  </option>
+                ))}
+              </select>
+              <button type="button" onClick={handleAddWorker}>
+                Add
+              </button>
             </div>
+            <ul className="assign-list">
+              {formData.assignedWorkers.map((wrk, idx) => (
+                <li key={idx}>
+                  {wrk}
+                  <button
+                    type="button"
+                    className="remove-btn"
+                    onClick={() => handleRemoveWorker(wrk)}
+                  >
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
           </div>
 
           <div className="tt-grid">
@@ -96,6 +201,7 @@ const AddNewTask = ({ onClose }) => {
                 <option>High</option>
               </select>
             </div>
+
             <div className="tt-row">
               <label>Status</label>
               <select

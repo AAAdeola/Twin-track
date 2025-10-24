@@ -1,16 +1,13 @@
 import React, { useState } from "react";
-import {
-  FiSearch,
-  FiBell,
-  FiUser,
-  FiTrash2,
-  FiX,
-} from "react-icons/fi";
+import { FiSearch, FiBell, FiUser } from "react-icons/fi";
 import { useParams, useLocation } from "react-router-dom";
 import Sidebar from "../Sidebar/Sidebar";
 import AddNewTask from "../Add-New-Task/Add-New-Task";
 import WorkLogDetails from "../WorkLogDetails/WorkLogDetails";
 import WorkersModal from "../WorkersModal/WorkersModal";
+import UsedAllMaterialsModal from "../UsedAllMaterialsModal/UsedAllMaterialsModal";
+import RemainingMaterialsModal from "../RemainingMaterialsModal/RemainingMaterialsModal";
+import MaterialsModal from "../TaskMaterialsModal/TaskMaterialsModal";
 import "./ProjectDashboard.css";
 
 const tabs = ["Summary", "Tasks", "Work Logs", "Attendance"];
@@ -25,31 +22,35 @@ const ProjectDashboard = () => {
     code: `PRJ-${id}`,
     status: "Active",
     workers: [],
+    materials: [
+      { name: "Cement", quantity: 50 },
+      { name: "Sand", quantity: 30 },
+      { name: "Iron Rods", quantity: 20 },
+    ],
   };
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("Summary");
   const [selectedTask, setSelectedTask] = useState(null);
+  const [usedAllModalTask, setUsedAllModalTask] = useState(null);
+  const [remainingModalTask, setRemainingModalTask] = useState(null);
+  const [materialsModalTask, setMaterialsModalTask] = useState(null);
 
-  const tasks = [
+  const [tasks, setTasks] = useState([
     {
       id: 1,
       name: "Foundation Pour",
       assigned: "John D. & Sarah K.",
-      workers: [
-        "Ahmed",
-        "Saeed",
-        "Tola",
-        "Zain",
-        "Lara",
-        "Kemi",
-        "James",
-        "Mary",
-      ],
+      workers: ["Ahmed", "Saeed", "Tola", "Zain", "Lara", "Kemi"],
       due: "2024-08-10",
       status: "Completed",
       avatarBg: "#FEEBC8",
       initials: "FD",
+      materials: [
+        { name: "Cement", quantity: 10 },
+        { name: "Sand", quantity: 5 },
+        { name: "Iron Rods", quantity: 2 },
+      ],
     },
     {
       id: 2,
@@ -60,14 +61,23 @@ const ProjectDashboard = () => {
       status: "In Progress",
       avatarBg: "#CFFAFE",
       initials: "FI",
+      materials: [
+        { name: "Cement", quantity: 4 },
+        { name: "Iron Rods", quantity: 6 },
+        { name: "Wood Panels", quantity: 12 },
+        { name: "Nails", quantity: 100 },
+        { name: "Paint", quantity: 10 },
+        { name: "Bricks", quantity: 200 },
+      ],
     },
-  ];
+  ]);
 
   const formatWorkers = (workers) => {
     if (!workers || workers.length === 0) return "No workers assigned";
     if (workers.length <= 2) return workers.join(", ");
-    return `${workers[0]}, ${workers[1]} and ${workers.length - 2} other${workers.length - 2 > 1 ? "s" : ""
-      }`;
+    return `${workers[0]}, ${workers[1]} and ${
+      workers.length - 2
+    } other${workers.length - 2 > 1 ? "s" : ""}`;
   };
 
   const allWorkers = new Set();
@@ -78,12 +88,51 @@ const ProjectDashboard = () => {
   const openWorkersModal = (task) => setSelectedTask(task);
   const closeWorkersModal = () => setSelectedTask(null);
 
+  const handleUsedAllUpdate = (usedMaterials) => {
+    const updatedTasks = tasks.map((task) =>
+      task.id === usedAllModalTask.id
+        ? {
+            ...task,
+            materials: task.materials.filter(
+              (m) => !usedMaterials.find((u) => u.name === m.name)
+            ),
+          }
+        : task
+    );
+    setTasks(updatedTasks);
+
+    usedMaterials.forEach((u) => {
+      const mat = project.materials.find((m) => m.name === u.name);
+      if (mat) mat.quantity -= u.quantityUsed;
+    });
+  };
+
+  const handleRemainingUpdate = (updatedMaterial) => {
+    const updatedTasks = tasks.map((task) =>
+      task.id === remainingModalTask.id
+        ? {
+            ...task,
+            materials: task.materials.map((m) =>
+              m.name === updatedMaterial.name
+                ? { ...m, quantity: updatedMaterial.remaining }
+                : m
+            ),
+          }
+        : task
+    );
+    setTasks(updatedTasks);
+
+    const mat = project.materials.find(
+      (m) => m.name === updatedMaterial.name
+    );
+    if (mat) mat.quantity -= updatedMaterial.quantityUsed;
+  };
+
   return (
     <div className="tt-dashboard">
       <Sidebar />
 
       <main className="tt-main">
-        {/* Topbar */}
         <div className="tt-topbar">
           <div className="tt-topbar-left">
             <h1 className="tt-project-title">{project.name}</h1>
@@ -100,17 +149,16 @@ const ProjectDashboard = () => {
               <FiSearch className="tt-search-icon" />
               <input className="tt-search-input" placeholder="Search tasks" />
             </div>
-            <button className="icon-btn" aria-label="notifications">
+            <button className="icon-btn">
               <FiBell />
               <span className="notif-dot" />
             </button>
-            <button className="icon-btn" aria-label="profile">
+            <button className="icon-btn">
               <FiUser />
             </button>
           </div>
         </div>
 
-        {/* Tabs */}
         <div className="tt-card">
           <div className="tt-card-top">
             <div className="tt-tabs">
@@ -133,25 +181,6 @@ const ProjectDashboard = () => {
           </div>
 
           <div className="tt-card-body">
-            {activeTab === "Summary" && (
-              <div className="tt-summary">
-                <h3>Project Summary</h3>
-                <p className="muted">Overview of project tasks and progress.</p>
-
-                <div className="tt-project-info">
-                  <p>
-                    <strong>Project Code:</strong> {project.code}
-                  </p>
-                  <p>
-                    <strong>Status:</strong> {project.status}
-                  </p>
-                  <p>
-                    <strong>Total Workers:</strong> {totalWorkers}
-                  </p>
-                </div>
-              </div>
-            )}
-
             {(activeTab === "Tasks" || activeTab === "Summary") && (
               <div className="tt-tasks-table-wrap">
                 <table className="tt-tasks-table">
@@ -160,8 +189,10 @@ const ProjectDashboard = () => {
                       <th>Task Name</th>
                       <th>Assigned</th>
                       <th>Workers</th>
+                      <th>Materials</th>
                       <th>Due Date</th>
                       <th>Status</th>
+                      <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -186,18 +217,49 @@ const ProjectDashboard = () => {
                         >
                           {formatWorkers(task.workers)}
                         </td>
+                        <td
+                          className="clickable"
+                          onClick={() => setMaterialsModalTask(task)}
+                        >
+                          {task.materials && task.materials.length > 0 ? (
+                            task.materials.length <= 2 ? (
+                              task.materials.map((m) => m.name).join(", ")
+                            ) : (
+                              `${task.materials[0].name}, ${
+                                task.materials[1].name
+                              } and ${task.materials.length - 2} others`
+                            )
+                          ) : (
+                            <span className="muted">No materials</span>
+                          )}
+                        </td>
                         <td>{task.due}</td>
                         <td>
                           <span
-                            className={`status-pill ${task.status === "Completed"
+                            className={`status-pill ${
+                              task.status === "Completed"
                                 ? "completed"
                                 : task.status === "In Progress"
-                                  ? "inprogress"
-                                  : "pending"
-                              }`}
+                                ? "inprogress"
+                                : "pending"
+                            }`}
                           >
                             {task.status}
                           </span>
+                        </td>
+                        <td>
+                          <button
+                            className="tt-small-btn used"
+                            onClick={() => setUsedAllModalTask(task)}
+                          >
+                            Used All
+                          </button>
+                          <button
+                            className="tt-small-btn remain"
+                            onClick={() => setRemainingModalTask(task)}
+                          >
+                            Remaining
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -216,12 +278,33 @@ const ProjectDashboard = () => {
         </div>
       </main>
 
-      {/* Workers Modal */}
-      {selectedTask && (
-        <WorkersModal task={selectedTask} onClose={closeWorkersModal} />
+      {selectedTask && <WorkersModal task={selectedTask} onClose={closeWorkersModal} />}
+      {isModalOpen && <AddNewTask onClose={() => setIsModalOpen(false)} />}
+
+      {usedAllModalTask && (
+        <UsedAllMaterialsModal
+          task={usedAllModalTask}
+          project={project}
+          onUpdate={handleUsedAllUpdate}
+          onClose={() => setUsedAllModalTask(null)}
+        />
       )}
 
-      {isModalOpen && <AddNewTask onClose={() => setIsModalOpen(false)} />}
+      {remainingModalTask && (
+        <RemainingMaterialsModal
+          task={remainingModalTask}
+          project={project}
+          onUpdate={handleRemainingUpdate}
+          onClose={() => setRemainingModalTask(null)}
+        />
+      )}
+
+      {materialsModalTask && (
+        <MaterialsModal
+          task={materialsModalTask}
+          onClose={() => setMaterialsModalTask(null)}
+        />
+      )}
     </div>
   );
 };
