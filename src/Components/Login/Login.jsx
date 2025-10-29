@@ -4,17 +4,49 @@ import "./Login.css";
 
 const Login = () => {
   const [formData, setFormData] = useState({ emailOrPhone: "", password: "" });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const navigate = useNavigate();
+
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log(formData);
+    setError("");
+    setLoading(true);
 
-    navigate("/MainDashboard");
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/Auth/Login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: formData.emailOrPhone,
+          password: formData.password,
+        }),
+      });
+      console.log("API Base URL:", API_BASE_URL);
+
+      const data = await response.json();
+
+      if (!response.ok || !data.isSuccess) {
+        setError(data.message || "Invalid email/phone or password");
+      } else {
+        if (data.data?.token) {
+          localStorage.setItem("authToken", data.data.token);
+        }
+
+        navigate("/MainDashboard");
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -63,16 +95,39 @@ const Login = () => {
             />
           </div>
 
+          {error && (
+            <div className="alert alert-danger py-2 text-center small">
+              {error}
+            </div>
+          )}
+
           <div className="text-end mb-3">
             <a href="#" className="text-decoration-none forgot-password">
               Forgot Password?
             </a>
           </div>
 
-          <button type="submit" className="btn btn-primary w-100">
-            Login
+          <button
+            type="submit"
+            className="btn btn-primary w-100"
+            disabled={loading}
+          >
+            {loading ? "Logging in..." : "Login"}
           </button>
         </form>
+
+        <div className="text-center mt-3">
+          <p className="text-muted small mb-0">
+            Don’t have an account?{" "}
+            <span
+              className="text-primary fw-semibold"
+              style={{ cursor: "pointer" }}
+              onClick={() => navigate("/register-worker")}
+            >
+              Register here
+            </span>
+          </p>
+        </div>
       </div>
     </div>
   );

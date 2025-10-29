@@ -15,6 +15,8 @@ import SupervisorsList from "./Components/SupervisorsList/SupervisorsList";
 import Login from "./Components/Login/Login";
 import Landing from "./Components/Landing/Landing";
 import Materials from "./Components/MaterialsInventory/MaterialsInventory";
+import RegisterSupervisor from "./Components/SupervisorRegistration/SupervisorRegistration";
+import RegisterWorker from "./Components/WorkerRegistration/WorkerRegistration";
 
 function App() {
   const [showLanding] = useState(false);
@@ -45,7 +47,9 @@ function App() {
           <Route path="/project/:id" element={<ProjectDashboard />} />
           <Route path="/workers" element={<WorkersList />} />
           <Route path="/supervisors" element={<SupervisorsList />} />
-                    <Route path="/materials" element={<Materials />} />
+          <Route path="/materials" element={<Materials />} />
+          <Route path="/register-supervisor" element={<RegisterSupervisor />} />
+          <Route path="/register-worker" element={<RegisterWorker />} />
           <Route path="/Login" element={<Login />} />
 
           <Route path="/Landing" element={<Landing />} />
