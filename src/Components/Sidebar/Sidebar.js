@@ -5,7 +5,6 @@ import {
   FiBriefcase,
   FiUsers,
   FiUserCheck,
-  FiBarChart2,
   FiSettings,
 } from "react-icons/fi";
 import "./Sidebar.css";
@@ -14,13 +13,15 @@ const Sidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const userId = localStorage.getItem("userId");
+
   const menuItems = [
-    { name: "Dashboard", path: "/MainDashboard", icon: <FiHome /> },
-    { name: "Projects", path: "/projects", icon: <FiBriefcase /> },
-    { name: "Workers", path: "/workers", icon: <FiUsers /> },
-    { name: "Supervisors", path: "/supervisors", icon: <FiUserCheck /> },
-    { name: "Materials", path: "/materials", icon: <FiBarChart2 /> },
-    { name: "Settings", path: "/settings", icon: <FiSettings /> },
+    { name: "Dashboard", path: `/MainDashboard/${userId}`, icon: <FiHome /> },
+    { name: "Projects", path: `/projects/${userId}`, icon: <FiBriefcase /> },
+    { name: "Workers", path: `/workers/${userId}`, icon: <FiUsers /> },
+    { name: "Supervisors", path: `/supervisors/${userId}`, icon: <FiUserCheck /> },
+    { name: "Settings", path: `/settings/${userId}`, icon: <FiSettings /> },
+    { name: "Assigned Projects", path: `/assigned-projects/${userId}`, icon: <FiBriefcase /> }
   ];
 
   return (

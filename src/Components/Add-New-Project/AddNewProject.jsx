@@ -1,274 +1,134 @@
 import React, { useState } from "react";
-import "./AddNewProject.css";
+import { Modal, Button, Form } from "react-bootstrap";
 
-const AddNewProject = ({ onClose, onCreate, availableMaterials = [] }) => {
-  const [formData, setFormData] = useState({
-    projectName: "",
-    projectCode: "",
-    description: "",
-    status: "Active",
-    supervisors: [],
-    materials: [],
-  });
+const AddNewProject = ({ show, handleClose, onProjectCreated }) => {
+  const [name, setName] = useState("");
+  const [location, setLocation] = useState("");
+  const [description, setDescription] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const [newSupervisor, setNewSupervisor] = useState("");
-  const [selectedMaterial, setSelectedMaterial] = useState("");
-  const [materialQty, setMaterialQty] = useState("");
-  const [error, setError] = useState(null);
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
+  const token = localStorage.getItem("authToken");
 
-  const handleChange = (e) =>
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-
-  const handleAddSupervisor = () => {
-    if (newSupervisor.trim() !== "") {
-      setFormData({
-        ...formData,
-        supervisors: [...formData.supervisors, newSupervisor.trim()],
-      });
-      setNewSupervisor("");
-    }
-  };
-
-  const handleRemoveSupervisor = (name) => {
-    setFormData({
-      ...formData,
-      supervisors: formData.supervisors.filter((sup) => sup !== name),
-    });
-  };
-
-  const handleAddMaterial = () => {
-    if (!selectedMaterial || !materialQty) return;
-
-    const material = availableMaterials.find(
-      (m) => m.name === selectedMaterial
-    );
-    if (!material) return;
-
-    const qty = parseInt(materialQty);
-    if (qty <= 0) return;
-
-    const existing = formData.materials.find((m) => m.name === selectedMaterial);
-    if (existing) {
-      setFormData({
-        ...formData,
-        materials: formData.materials.map((m) =>
-          m.name === selectedMaterial ? { ...m, quantity: qty } : m
-        ),
-      });
-    } else {
-      setFormData({
-        ...formData,
-        materials: [
-          ...formData.materials,
-          { name: selectedMaterial, quantity: qty },
-        ],
-      });
-    }
-
-    setSelectedMaterial("");
-    setMaterialQty("");
-  };
-
-  const handleRemoveMaterial = (name) => {
-    setFormData({
-      ...formData,
-      materials: formData.materials.filter((m) => m.name !== name),
-    });
-  };
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (formData.projectName.trim() === "") return;
+    setError("");
+    setLoading(true);
 
-    for (let mat of formData.materials) {
-      const stock = availableMaterials.find((m) => m.name === mat.name);
-      if (!stock) continue;
+    if (!token) {
+      setError("You must be logged in to create a project.");
+      setLoading(false);
+      return;
+    }
 
-      if (mat.quantity > stock.quantity) {
-        setError({
-          title: "Not Enough Material",
-          message: `You requested ${mat.quantity} units of "${mat.name}", but only ${stock.quantity} are available.`,
-        });
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/projects`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,    // ✅ IMPORTANT!! SEND TOKEN
+        },
+        body: JSON.stringify({
+          name,
+          location,
+          description,
+        }),
+      });
+
+      if (response.status === 401) {
+        setError("Your session has expired. Please log in again.");
+        setLoading(false);
         return;
       }
-    }
 
-    onCreate(formData);
-    onClose();
+      let data = null;
+
+      try {
+        data = await response.json(); // ✅ safe JSON parse
+      } catch {
+        setError("Unexpected server error. Try again.");
+        setLoading(false);
+        return;
+      }
+
+      if (!response.ok || data.isSuccess === false) {
+        setError(data.message || "Failed to create project.");
+        setLoading(false);
+        return;
+      }
+
+      // ✅ Project successfully created
+      onProjectCreated(data.data);
+
+      // ✅ Reset fields
+      setName("");
+      setLocation("");
+      setDescription("");
+
+      handleClose();
+    } catch (err) {
+      console.error("Create project error:", err);
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="tt-modal-overlay" onMouseDown={onClose}>
-      <div
-        className="tt-modal-card"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <button className="tt-close" onClick={onClose}>
-          ×
-        </button>
+    <Modal show={show} onHide={handleClose} centered>
+      <Modal.Header closeButton>
+        <Modal.Title>Add New Project</Modal.Title>
+      </Modal.Header>
 
-        <div className="tt-modal-head">
-          <h3>Create New Project</h3>
-          <p className="muted">Add project details, materials, and supervisors</p>
-        </div>
+      <Modal.Body>
+        <Form onSubmit={handleSubmit}>
+          {error && <div className="alert alert-danger">{error}</div>}
 
-        <form className="tt-form" onSubmit={handleSubmit}>
-          <div className="tt-row">
-            <label>Project Name</label>
-            <input
-              name="projectName"
-              value={formData.projectName}
-              onChange={handleChange}
+          <Form.Group className="mb-3">
+            <Form.Label>Project Name</Form.Label>
+            <Form.Control
+              type="text"
               placeholder="Enter project name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               required
             />
-          </div>
+          </Form.Group>
 
-          <div className="tt-row">
-            <label>Project Code</label>
-            <input
-              name="projectCode"
-              value={formData.projectCode}
-              onChange={handleChange}
-              placeholder="e.g. PRJ-001"
+          <Form.Group className="mb-3">
+            <Form.Label>Location</Form.Label>
+            <Form.Control
+              type="text"
+              placeholder="Enter location"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
               required
             />
-          </div>
+          </Form.Group>
 
-          <div className="tt-row">
-            <label>Description</label>
-            <textarea
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              placeholder="Short project overview"
-              rows="3"
+          <Form.Group className="mb-3">
+            <Form.Label>Description</Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={3}
+              placeholder="Enter project description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
             />
-          </div>
+          </Form.Group>
 
-          <div className="tt-row">
-            <label>Status</label>
-            <select
-              name="status"
-              value={formData.status}
-              onChange={handleChange}
-            >
-              <option>Active</option>
-              <option>Pending</option>
-              <option>Completed</option>
-            </select>
-          </div>
-
-          <div className="tt-row">
-            <label>Materials</label>
-            <div className="material-select">
-              <select
-                value={selectedMaterial}
-                onChange={(e) => setSelectedMaterial(e.target.value)}
-              >
-                <option value="">Select material</option>
-                {availableMaterials.map((mat, idx) => (
-                  <option
-                    key={idx}
-                    value={mat.name}
-                    disabled={mat.quantity <= 0}
-                  >
-                    {mat.name}{" "}
-                    ({mat.quantity > 0
-                      ? `Available: ${mat.quantity}`
-                      : "Out of stock"})
-                  </option>
-                ))}
-              </select>
-
-              <input
-                type="number"
-                placeholder="Qty"
-                value={materialQty}
-                onChange={(e) => setMaterialQty(e.target.value)}
-                min="1"
-              />
-
-              <button
-                type="button"
-                className="add-mat-btn"
-                onClick={handleAddMaterial}
-              >
-                Add
-              </button>
-            </div>
-
-            <ul className="selected-materials">
-              {formData.materials.map((mat, idx) => (
-                <li key={idx}>
-                  {mat.name} - {mat.quantity}
-                  <button
-                    type="button"
-                    className="remove-btn"
-                    onClick={() => handleRemoveMaterial(mat.name)}
-                  >
-                    ✕
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="tt-row">
-            <label>Supervisors</label>
-            <div className="supervisor-input">
-              <input
-                value={newSupervisor}
-                onChange={(e) => setNewSupervisor(e.target.value)}
-                placeholder="Enter supervisor name"
-              />
-              <button type="button" onClick={handleAddSupervisor}>
-                Add
-              </button>
-            </div>
-            <ul className="supervisor-list">
-              {formData.supervisors.map((sup, idx) => (
-                <li key={idx}>
-                  {sup}
-                  <button
-                    type="button"
-                    className="remove-btn"
-                    onClick={() => handleRemoveSupervisor(sup)}
-                  >
-                    ✕
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="tt-actions">
-            <button type="button" className="tt-cancel" onClick={onClose}>
-              Cancel
-            </button>
-            <button type="submit" className="tt-create">
-              Create Project
-            </button>
-          </div>
-        </form>
-      </div>
-
-      {error && (
-        <div
-          className="error-modal-overlay"
-          onMouseDown={() => setError(null)}
-        >
-          <div
-            className="error-modal-card"
-            onMouseDown={(e) => e.stopPropagation()}
+          <Button
+            variant="primary"
+            className="w-100"
+            type="submit"
+            disabled={loading}
           >
-            <h3>{error.title}</h3>
-            <p>{error.message}</p>
-            <button onClick={() => setError(null)}>OK</button>
-          </div>
-        </div>
-      )}
-    </div>
+            {loading ? "Creating..." : "Create Project"}
+          </Button>
+        </Form>
+      </Modal.Body>
+    </Modal>
   );
 };
 

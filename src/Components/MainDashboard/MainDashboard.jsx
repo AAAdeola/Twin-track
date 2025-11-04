@@ -1,89 +1,139 @@
-import React, { useMemo } from "react";
-import { FiUsers, FiBriefcase, FiCheckCircle, FiBarChart2 } from "react-icons/fi";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import React, { useEffect, useState } from "react";
+import {
+  FiUsers,
+  FiBriefcase,
+  FiCheckCircle,
+} from "react-icons/fi";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 import Sidebar from "../Sidebar/Sidebar";
 import { useNavigate } from "react-router-dom";
 import "./MainDashboard.css";
 
-const MainDashboard = ({ supervisorName = "Saeed Rido" }) => {
+const MainDashboard = ({ supervisorName = "Supervisor" }) => {
   const navigate = useNavigate();
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
-  const projects = [
-    {
-      id: 1,
-      name: "Residential Complex",
-      status: "Completed",
-      workers: ["Ahmed", "Tola", "Zain", "Mary"],
-    },
-    {
-      id: 2,
-      name: "Office Tower",
-      status: "In Progress",
-      workers: ["Tola", "Lara", "Kemi", "James"],
-    },
-    {
-      id: 3,
-      name: "Shopping Plaza",
-      status: "In Progress",
-      workers: ["Ahmed", "Fatima", "Zain"],
-    },
-  ];
+  const [projects, setProjects] = useState([]);
+  const [totalWorkers, setTotalWorkers] = useState(0);
+  const [totalSupervisors, setTotalSupervisors] = useState(0);
+  const [totalTasks, setTotalTasks] = useState(0);
+  const [completedTasks, setCompletedTasks] = useState(0);
+  const [analyticsData, setAnalyticsData] = useState([]);
+  const [timeFilter, setTimeFilter] = useState("last-month");
 
-  const supervisors = [
-    "Saeed Rido",
-    "John Doe",
-    "Fatima Ibrahim",
-    "Usman Bello",
-  ];
+  const token = localStorage.getItem("authToken");
+  const userId = localStorage.getItem("userId"); // ✅ used for routes
 
-  const tasks = [
-    { id: 1, status: "Completed" },
-    { id: 2, status: "Completed" },
-    { id: 3, status: "In Progress" },
-    { id: 4, status: "Pending" },
-  ];
+  useEffect(() => {
+    if (!token) return;
 
-  const uniqueWorkers = useMemo(() => {
-    const all = new Set();
-    projects.forEach((p) => p.workers.forEach((w) => all.add(w)));
-    return Array.from(all);
-  }, [projects]);
+    fetchProjects();
+    fetchAnalytics(timeFilter);
+  }, [timeFilter, token]);
 
-  const totalProjects = projects.length;
-  const completedProjects = projects.filter((p) => p.status === "Completed").length;
-  const incompleteProjects = totalProjects - completedProjects;
+  const fetchProjects = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/projects/my-projects`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-  const totalTasks = tasks.length;
-  const completedTasks = tasks.filter((t) => t.status === "Completed").length;
+      const data = await res.json();
+
+      if (!data.isSuccess) return;
+
+      setProjects(data.data);
+
+      let workerCount = 0;
+      let supervisorCount = 0;
+      let taskCount = 0;
+      let completedTaskCount = 0;
+
+      for (let project of data.data) {
+        const statsRes = await fetch(
+          `${API_BASE_URL}/api/v1/projects/${project.id}/stats`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        const statsData = await statsRes.json();
+
+        if (statsData.isSuccess) {
+          taskCount += statsData.data.totalTasks;
+          completedTaskCount += statsData.data.tasksCompleted;
+        }
+
+        const assignRes = await fetch(
+          `${API_BASE_URL}/api/v1/projects/${project.id}/assignments`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        const assignData = await assignRes.json();
+
+        if (assignData.isSuccess) {
+          workerCount += assignData.data.workers.length;
+          supervisorCount += assignData.data.supervisors.length;
+        }
+      }
+
+      setTotalWorkers(workerCount);
+      setTotalSupervisors(supervisorCount);
+      setTotalTasks(taskCount);
+      setCompletedTasks(completedTaskCount);
+    } catch (err) {
+      console.error("Error loading dashboard info:", err);
+    }
+  };
+
+  const fetchAnalytics = async (range) => {
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/v1/dashboard/analytics?range=${range}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      const data = await res.json();
+
+      if (data.isSuccess) {
+        setAnalyticsData(data.data);
+      }
+    } catch (err) {
+      console.error("Error loading analytics:", err);
+    }
+  };
+
   const incompleteTasks = totalTasks - completedTasks;
-
-  const chartData = [
-    { name: "Mon", Projects: 2, Tasks: 6 },
-    { name: "Tue", Projects: 3, Tasks: 9 },
-    { name: "Wed", Projects: 3, Tasks: 7 },
-    { name: "Thu", Projects: 4, Tasks: 10 },
-    { name: "Fri", Projects: 4, Tasks: 8 },
-    { name: "Sat", Projects: 5, Tasks: 11 },
-    { name: "Sun", Projects: 3, Tasks: 6 },
-  ];
 
   return (
     <div className="tt-dashboard">
-      <Sidebar />
+      <Sidebar userId={userId} />
+
       <main className="tt-main">
-        {/* Header */}
         <div className="dashboard-header">
           <h1>Welcome, {supervisorName} 👋</h1>
-          <p className="muted">Here’s what’s happening with your projects today.</p>
+          <p className="muted">
+            Here’s what’s happening with your projects today.
+          </p>
         </div>
 
+        {/* Summary Cards */}
         <div className="dashboard-cards">
           <div className="dash-card">
             <div className="card-icon workers">
               <FiUsers />
             </div>
             <div>
-              <h2>{uniqueWorkers.length}</h2>
+              <h2>{totalWorkers}</h2>
               <p>Total Workers</p>
             </div>
           </div>
@@ -93,7 +143,7 @@ const MainDashboard = ({ supervisorName = "Saeed Rido" }) => {
               <FiUsers />
             </div>
             <div>
-              <h2>{supervisors.length}</h2>
+              <h2>{totalSupervisors}</h2>
               <p>Total Supervisors</p>
             </div>
           </div>
@@ -103,8 +153,8 @@ const MainDashboard = ({ supervisorName = "Saeed Rido" }) => {
               <FiBriefcase />
             </div>
             <div>
-              <h2>{totalProjects}</h2>
-              <p>Projects ({completedProjects} complete, {incompleteProjects} incomplete)</p>
+              <h2>{projects.length}</h2>
+              <p>Projects</p>
             </div>
           </div>
 
@@ -114,38 +164,63 @@ const MainDashboard = ({ supervisorName = "Saeed Rido" }) => {
             </div>
             <div>
               <h2>{totalTasks}</h2>
-              <p>Tasks ({completedTasks} complete, {incompleteTasks} incomplete)</p>
+              <p>
+                Tasks ({completedTasks} complete, {incompleteTasks} incomplete)
+              </p>
             </div>
           </div>
         </div>
 
+        <div className="filter-row">
+          <select
+            value={timeFilter}
+            onChange={(e) => setTimeFilter(e.target.value)}
+          >
+            <option value="last-week">Last 7 Days</option>
+            <option value="last-month">Last 30 Days</option>
+            <option value="last-2-months">Last 2 Months</option>
+          </select>
+        </div>
+
         <div className="analytics-section">
           <h3>Project & Task Overview</h3>
-          <ResponsiveContainer width="100%" height={320}>
-            <LineChart data={chartData}>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={analyticsData}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
+              <XAxis dataKey="label" />
               <YAxis />
               <Tooltip />
               <Legend />
-              <Line type="monotone" dataKey="Projects" stroke="#2563eb" strokeWidth={2} />
-              <Line type="monotone" dataKey="Tasks" stroke="#10b981" strokeWidth={2} />
+              <Line type="monotone" dataKey="projects" stroke="#2563eb" />
+              <Line type="monotone" dataKey="tasks" stroke="#10b981" />
             </LineChart>
           </ResponsiveContainer>
         </div>
 
         <div className="quick-actions">
           <h3>Quick Actions</h3>
+
           <div className="quick-grid">
-            <div className="quick-card" onClick={() => navigate("/projects")}>
+            <div
+              className="quick-card"
+              onClick={() => navigate(`/projects/${userId}`)}
+            >
               <FiBriefcase className="quick-icon" />
               <span>View Projects</span>
             </div>
-            <div className="quick-card" onClick={() => navigate("/workers")}>
+
+            <div
+              className="quick-card"
+              onClick={() => navigate(`/workers/${userId}`)}
+            >
               <FiUsers className="quick-icon" />
               <span>View Workers</span>
             </div>
-            <div className="quick-card" onClick={() => navigate("/supervisors")}>
+
+            <div
+              className="quick-card"
+              onClick={() => navigate(`/supervisors/${userId}`)}
+            >
               <FiUsers className="quick-icon" />
               <span>View Supervisors</span>
             </div>
