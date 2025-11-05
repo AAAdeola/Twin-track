@@ -20,6 +20,7 @@ import AssignWorkerToTaskModal from "../Modals/AssignWorkerModal";
 import AssignSupervisorModal from "../Modals/AssignSupervisorModal";
 import MaterialsModal from "../Modals/MaterialsModal";
 import ProjectMaterialsModal from "../Modals/ProjectMaterialsModal";
+import TaskMaterialsModal from "../TaskMaterialsModal/TaskMaterialsModal";
 
 /* ✅ Tabs setup */
 const tabs = ["Summary", "Tasks", "Work Logs", "Materials", "Attendance"];
@@ -62,6 +63,7 @@ const ProjectDashboard = () => {
   const [selectedTaskForWorkers, setSelectedTaskForWorkers] = useState(null);
   const [selectedTaskMaterials, setSelectedTaskMaterials] = useState(null);
   const [showProjectMaterialsModal, setShowProjectMaterialsModal] = useState(false);
+  const [taskMaterialsView, setTaskMaterialsView] = useState(null);
 
   /* ✅ Worker / supervisor lists */
   const [allWorkers, setAllWorkers] = useState([]);
@@ -125,19 +127,33 @@ const ProjectDashboard = () => {
         return;
       }
 
+
       const payload = await res.json();
       const list = payload.data ?? payload;
 
-      const normalized = (Array.isArray(list) ? list : []).map((t) => ({
-        id: t.id,
-        name: t.name,
-        description: t.description,
-        due: t.deadLine ? new Date(t.deadLine).toLocaleDateString() : "—",
-        status: t.status,
-        assignedWorkers: t.assignedWorkers ?? [],
-        materials: t.materials ?? [],
-        raw: t,
-      }));
+      const normalized = (Array.isArray(list) ? list : []).map((t) => {
+
+        // ✅ ADD LOGS HERE
+        console.log("📌 Raw task from backend:", t);
+        console.log("📌 taskMaterials:", t.taskMaterials);
+
+        return {
+          id: t.id,
+          name: t.name,
+          description: t.description,
+          due: t.deadLine ? new Date(t.deadLine).toLocaleDateString() : "—",
+          status: t.status,
+          assignedWorkers: t.assignedWorkers ?? [],
+          materials: (t.materials ?? []).map((m) => ({
+            id: m.materialId,
+            name: m.name,          // backend uses name ✅
+            quantity: m.quantity,
+          })),
+          raw: t,
+        };
+      });
+
+
 
       setTasks(normalized);
     } catch {
@@ -147,6 +163,24 @@ const ProjectDashboard = () => {
     }
   };
 
+  // const fetchProjectMaterials = async () => {
+  //   try {
+  //     const res = await fetch(`${API_BASE_URL}/api/v1/projects/${projectId}/materials`, {
+  //       headers: authHeaders(),
+  //     });
+
+  //     const payload = await res.json();
+  //     const list = payload.data ?? payload ?? [];
+
+  //     setProject((prev) => ({
+  //       ...prev,
+  //       materials: list,
+  //     }));
+  //   } catch (err) {
+  //     toast.error("Failed to load project materials.");
+  //   }
+  // };
+
   const fetchProjectMaterials = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/v1/projects/${projectId}/materials`, {
@@ -154,13 +188,28 @@ const ProjectDashboard = () => {
       });
 
       const payload = await res.json();
-      const list = payload.data ?? payload ?? [];
+      console.log("📦 Project Materials API raw response:", payload);
 
+      const list = payload.data ?? [];
+      console.log("📦 Extracted materials list:", list);
+
+      const normalized = list.map((m) => ({
+        id: m.materialId ?? m.id,
+        name: m.name,
+        quantity: m.quantity,
+        availableQuantity: m.availableQuantity ?? m.quantity,
+      }));
+
+
+      console.log("📦 Normalized materials list:", normalized);
+
+      // Update project state with normalized materials
       setProject((prev) => ({
         ...prev,
-        materials: list,
+        materials: normalized,
       }));
     } catch (err) {
+      console.error("❌ Failed to load project materials:", err);
       toast.error("Failed to load project materials.");
     }
   };
@@ -272,44 +321,32 @@ const ProjectDashboard = () => {
     }
   };
 
-  /* ✅ ASSIGN WORKER TO TASK */
-  const assignWorkerToTask = async (task, selectedMaterials) => {
-  try {
-    if (!selectedMaterials || selectedMaterials.length === 0) {
-      toast.warn("No materials selected.");
-      return;
-    }
+  const assignWorkerToTaskApi = async (taskId, workerId) => {
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/v1/task/${taskId}/assign/${workerId}`,
+        {
+          method: "POST",
+          headers: authHeaders(),
+        }
+      );
 
-    // Loop through selected materials and send requests
-    for (const material of selectedMaterials) {
-      const payload = {
-        MaterialId: material.id,
-        TaskId: task.id,
-        Quantity: material.quantity ?? 1, // default to 1 if not specified
-        SupervisorId: localStorage.getItem("userId"), // your current supervisor ID
-        ProjectId: project.id
-      };
+      const payload = await res.json();
 
-      const res = await fetch(`${API_BASE_URL}/api/v1/materials/assign-to-task`, {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify(payload)
-      });
-
-      const result = await res.json();
       if (!res.ok) {
-        toast.error(result.message ?? "Failed to assign material");
+        toast.error(payload.message ?? "Failed to assign worker.");
+        return;
       }
-    }
 
-    toast.success("Materials assigned to task successfully.");
-    fetchTasks(); // refresh tasks to show assigned materials
-    setSelectedTaskMaterials(null); // close modal
-  } catch (err) {
-    console.error(err);
-    toast.error("Error assigning materials to task.");
-  }
-};
+      toast.success("Worker assigned to task successfully.");
+      fetchTasks(); // refresh tasks
+      fetchAssignments(); // refresh workers
+    } catch (err) {
+      console.error(err);
+      toast.error("Error assigning worker to task.");
+    }
+  };
+
 
   /* ✅ ASSIGN SUPERVISOR */
   const assignSupervisorToProject = async (supervisorId, level = 0) => {
@@ -332,25 +369,46 @@ const ProjectDashboard = () => {
   };
 
   /* ✅ MATERIALS */
-  const addProjectMaterial = async ({ name, quantity }) => {
+  const addProjectMaterial = async ({ name, TotalQuantity }) => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/v1/material/create`, {
         method: "POST",
         headers: authHeaders(),
-        body: JSON.stringify({ name, quantity, projectId }),
+        body: JSON.stringify({ name, TotalQuantity, projectId }),
       });
 
       const payload = await res.json();
       if (!res.ok) return toast.error(payload.message);
 
       toast.success("Material added.");
-      fetchProject();
+      fetchProjectMaterials();
     } catch {
       toast.error("Error adding material.");
     }
   };
 
+
   const handleAssignMaterialsToTask = async (taskId, selectedMaterials) => {
+    const currentUserId = localStorage.getItem("userId")?.trim().toLowerCase();
+    console.log("🟢 Current logged-in user ID:", currentUserId);
+
+    console.log("🟢 Supervisors for this project:", assignments.supervisors);
+
+    const isSupervisor = assignments.supervisors.some(
+      (s) => s.userId?.trim().toLowerCase() === currentUserId
+    );
+    console.log("🟢 Is current user a supervisor?", isSupervisor);
+
+    if (!isSupervisor) {
+      toast.error("You are not a supervisor for this project.");
+      return;
+    }
+
+    if (!selectedMaterials || selectedMaterials.length === 0) {
+      toast.warn("No materials selected.");
+      return;
+    }
+
     try {
       const res = await fetch(`${API_BASE_URL}/api/v1/task/${taskId}/assign-materials`, {
         method: "POST",
@@ -359,11 +417,18 @@ const ProjectDashboard = () => {
       });
 
       const payload = await res.json();
-      if (!res.ok) return toast.error(payload.message ?? "Failed to assign materials.");
+      console.log("🟢 Assign materials API response:", payload);
+
+      if (!res.ok) {
+        toast.error(payload.message ?? "Failed to assign materials.");
+        return;
+      }
 
       toast.success("Materials assigned to task.");
       fetchTasks(); // refresh tasks to show assigned materials
-    } catch {
+      setSelectedTaskMaterials(null); // close modal
+    } catch (err) {
+      console.error("❌ Error assigning materials:", err);
       toast.error("Error assigning materials to task.");
     }
   };
@@ -517,13 +582,12 @@ const ProjectDashboard = () => {
                                   } others`}
                             </td>
 
-                            <td className="clickable" onClick={() => openMaterialsModal(task)}>
-                              {task.materials.length === 0
-                                ? "No materials"
-                                : task.materials.length <= 2
-                                  ? task.materials.map((m) => m.name).join(", ")
-                                  : `${task.materials[0].name}, ${task.materials[1].name} and ${task.materials.length - 2
-                                  } more`}
+                            <td className="clickable" onClick={() => setTaskMaterialsView(task)}>                              {task.materials.length === 0
+                              ? "No materials"
+                              : task.materials.length <= 2
+                                ? task.materials.map((m) => m.name).join(", ")
+                                : `${task.materials[0].name}, ${task.materials[1].name} and ${task.materials.length - 2
+                                } more`}
                             </td>
 
                             <td>{task.due}</td>
@@ -569,15 +633,21 @@ const ProjectDashboard = () => {
             {activeTab === "Materials" && (
               <div className="tt-materials-wrap">
                 <h2>Project Materials</h2>
+
+                {/* Loading state */}
+                {loadingProject && project.materials.length === 0 ? (
+                  <div className="muted">Loading materials...</div>
+                ) : null}
+
                 <ul>
-                  {project.materials.length === 0 ? (
-                    <li className="muted">No materials yet.</li>
-                  ) : (
-                    (project.materials ?? []).map((m, i) => (
-                      <li key={i}>
-                        {m.name} — <strong>{m.quantity ?? "-"}</strong>
+                  {project.materials && project.materials.length > 0 ? (
+                    project.materials.map((m) => (
+                      <li key={m.id}>
+                        {m.name} — <strong>{m.quantity ?? 0}</strong>
                       </li>
                     ))
+                  ) : (
+                    <li className="muted">No materials yet.</li>
                   )}
                 </ul>
               </div>
@@ -590,8 +660,7 @@ const ProjectDashboard = () => {
         </div>
       </main>
 
-      {/* ✅ MODALS */}
-      {/* ✅ MODALS */}
+
       {isAddTaskOpen && (
         <AddTaskModal
           projectId={projectId}
@@ -624,7 +693,7 @@ const ProjectDashboard = () => {
         <AssignWorkerToTaskModal
           task={assignWorkerTask}
           onClose={() => setAssignWorkerTask(null)}
-          onAssign={(workerId) => assignWorkerToTask(assignWorkerTask.id, workerId)}
+          onAssign={(workerId) => assignWorkerToTaskApi(assignWorkerTask.id, workerId)}
           projectWorkers={projectWorkers}
           fetchProjectWorkers={fetchAssignments}
         />
@@ -671,8 +740,17 @@ const ProjectDashboard = () => {
           onIncrease={increaseMaterial}
         />
       )}
+
+      {taskMaterialsView && (
+        <TaskMaterialsModal
+          task={taskMaterialsView}
+          project={project}         // ✅ Needed to show available quantities
+          onClose={() => setTaskMaterialsView(null)}
+        />
+      )}
     </div>
   );
+
 };
 
 export default ProjectDashboard;

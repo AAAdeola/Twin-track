@@ -74,7 +74,6 @@ const ProjectsList = () => {
   fetchProjects();
 }, [API_BASE_URL]);
 
-  // ✅ ADD NEW PROJECT TO UI AFTER CREATION
   const handleCreateProject = (newProject) => {
     setProjects((prev) => [
       ...prev,
