@@ -19,8 +19,6 @@ import Login from "./Components/Login/Login";
 import Landing from "./Components/Landing/Landing";
 import RegisterSupervisor from "./Components/SupervisorRegistration/SupervisorRegistration";
 import RegisterWorker from "./Components/WorkerRegistration/WorkerRegistration";
-import AssignedProjects from "./Components/AssignedProjects/AssignedProjects";
-import AssignedProjectDashboard from "./Components/AssignedProjects/AssignedProjectDashboard";
 
 function App() {
   const [showHome] = useState(true);
@@ -53,11 +51,6 @@ function App() {
           <Route path="/project/:id/:userId" element={<ProjectDashboard />} />
           <Route path="/workers/:userId" element={<WorkersList />} />
           <Route path="/supervisors/:userId" element={<SupervisorsList />} />
-          <Route path="/assigned-projects/:userId" element={<AssignedProjects />} />
-          <Route
-            path="/assigned-project/:projectId/:userId"
-            element={<AssignedProjectDashboard />}
-          />
           <Route path="/register-supervisor" element={<RegisterSupervisor />} />
           <Route path="/register-worker" element={<RegisterWorker />} />
           <Route path="/Login" element={<Login />} />

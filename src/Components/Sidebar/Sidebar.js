@@ -21,7 +21,6 @@ const Sidebar = () => {
     { name: "Workers", path: `/workers/${userId}`, icon: <FiUsers /> },
     { name: "Supervisors", path: `/supervisors/${userId}`, icon: <FiUserCheck /> },
     { name: "Settings", path: `/settings/${userId}`, icon: <FiSettings /> },
-    { name: "Assigned Projects", path: `/assigned-projects/${userId}`, icon: <FiBriefcase /> }
   ];
 
   return (
