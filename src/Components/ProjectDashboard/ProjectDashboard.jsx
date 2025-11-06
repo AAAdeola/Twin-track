@@ -8,6 +8,7 @@ import {
   FiUser,
   FiPlus,
   FiChevronLeft,
+  FiPlusCircle,
 } from "react-icons/fi";
 
 import { toast } from "react-toastify";
@@ -22,8 +23,10 @@ import MaterialsModal from "../Modals/MaterialsModal";
 import ProjectMaterialsModal from "../Modals/ProjectMaterialsModal";
 import TaskMaterialsModal from "../TaskMaterialsModal/TaskMaterialsModal";
 
-/* ✅ Tabs setup */
-const tabs = ["Summary", "Tasks", "Work Logs", "Materials", "Attendance"];
+// Your provided modal (separate file)
+import IncreaseMaterialModal from "../IncreaseMaterialModal/IncreaseMaterialModal";
+
+const tabs = ["Tasks", "Work Logs", "Materials", "Attendance"];
 
 const ProjectDashboard = () => {
   const { id: projectId, userId: routeUserId } = useParams();
@@ -49,13 +52,13 @@ const ProjectDashboard = () => {
   const [tasks, setTasks] = useState([]);
   const [assignments, setAssignments] = useState({ supervisors: [], workers: [] });
 
-  const [activeTab, setActiveTab] = useState("Summary");
+  const [activeTab, setActiveTab] = useState("Tasks");
 
   const [loadingProject, setLoadingProject] = useState(false);
   const [loadingTasks, setLoadingTasks] = useState(false);
   const [loadingAssignments, setLoadingAssignments] = useState(false);
 
-  /* ✅ Modal state */
+  /* Modals state */
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [showWorkerAssign, setShowWorkerAssign] = useState(false);
   const [assignWorkerTask, setAssignWorkerTask] = useState(null);
@@ -65,7 +68,11 @@ const ProjectDashboard = () => {
   const [showProjectMaterialsModal, setShowProjectMaterialsModal] = useState(false);
   const [taskMaterialsView, setTaskMaterialsView] = useState(null);
 
-  /* ✅ Worker / supervisor lists */
+  /* Increase material modal state */
+  const [showIncreaseModal, setShowIncreaseModal] = useState(false);
+  const [materialToIncrease, setMaterialToIncrease] = useState(null);
+
+  /* Worker / supervisor lists */
   const [allWorkers, setAllWorkers] = useState([]);
   const [projectWorkers, setProjectWorkers] = useState([]);
   const [supervisors, setSupervisors] = useState([]);
@@ -76,67 +83,51 @@ const ProjectDashboard = () => {
     fetchTasks();
     fetchAssignments();
     fetchProjectMaterials();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
   const authHeaders = () =>
-    token
-      ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
-      : { "Content-Type": "application/json" };
+    token ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } : { "Content-Type": "application/json" };
 
-  /* ✅ FETCH PROJECT */
+  /* FETCH PROJECT */
   const fetchProject = async () => {
     setLoadingProject(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/projects/${projectId}`, {
-        headers: authHeaders(),
-      });
-
+      const res = await fetch(`${API_BASE_URL}/api/v1/projects/${projectId}`, { headers: authHeaders() });
       if (!res.ok) {
         toast.warn("Failed to load project.");
         return;
       }
-
       const payload = await res.json();
       const dto = payload.data ?? payload;
-
       setProject((prev) => ({
         ...prev,
         id: dto.id,
         name: dto.name,
         description: dto.description,
         status: dto.status,
-        materials: dto.materials ?? [],
+        materials: dto.materials ?? prev.materials ?? [],
       }));
-    } catch {
+    } catch (err) {
+      console.error("Error loading project:", err);
       toast.error("Error loading project.");
     } finally {
       setLoadingProject(false);
     }
   };
 
-  /* ✅ FETCH TASKS */
+  /* FETCH TASKS */
   const fetchTasks = async () => {
     setLoadingTasks(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/projects/${projectId}/tasks`, {
-        headers: authHeaders(),
-      });
-
+      const res = await fetch(`${API_BASE_URL}/api/v1/projects/${projectId}/tasks`, { headers: authHeaders() });
       if (!res.ok) {
         toast.warn("Failed to fetch tasks.");
         return;
       }
-
-
       const payload = await res.json();
-      const list = payload.data ?? payload;
-
+      const list = payload.data ?? payload ?? [];
       const normalized = (Array.isArray(list) ? list : []).map((t) => {
-
-        // ✅ ADD LOGS HERE
-        console.log("📌 Raw task from backend:", t);
-        console.log("📌 taskMaterials:", t.taskMaterials);
-
         return {
           id: t.id,
           name: t.name,
@@ -145,93 +136,55 @@ const ProjectDashboard = () => {
           status: t.status,
           assignedWorkers: t.assignedWorkers ?? [],
           materials: (t.materials ?? []).map((m) => ({
-            id: m.materialId,
-            name: m.name,          // backend uses name ✅
+            id: m.materialId ?? m.id,
+            name: m.name,
             quantity: m.quantity,
           })),
           raw: t,
         };
       });
-
-
-
       setTasks(normalized);
-    } catch {
+    } catch (err) {
+      console.error("Failed loading tasks:", err);
       toast.error("Failed loading tasks.");
     } finally {
       setLoadingTasks(false);
     }
   };
 
-  // const fetchProjectMaterials = async () => {
-  //   try {
-  //     const res = await fetch(`${API_BASE_URL}/api/v1/projects/${projectId}/materials`, {
-  //       headers: authHeaders(),
-  //     });
-
-  //     const payload = await res.json();
-  //     const list = payload.data ?? payload ?? [];
-
-  //     setProject((prev) => ({
-  //       ...prev,
-  //       materials: list,
-  //     }));
-  //   } catch (err) {
-  //     toast.error("Failed to load project materials.");
-  //   }
-  // };
-
+  /* FETCH PROJECT MATERIALS */
   const fetchProjectMaterials = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/projects/${projectId}/materials`, {
-        headers: authHeaders(),
-      });
-
+      const res = await fetch(`${API_BASE_URL}/api/v1/projects/${projectId}/materials`, { headers: authHeaders() });
       const payload = await res.json();
       console.log("📦 Project Materials API raw response:", payload);
-
       const list = payload.data ?? [];
-      console.log("📦 Extracted materials list:", list);
-
-      const normalized = list.map((m) => ({
+      const normalized = (Array.isArray(list) ? list : []).map((m) => ({
         id: m.materialId ?? m.id,
         name: m.name,
-        quantity: m.quantity,
-        availableQuantity: m.availableQuantity ?? m.quantity,
+        quantity: m.quantity ?? 0,
+        availableQuantity: m.availableQuantity ?? m.quantity ?? 0,
+        unit: m.unit ?? "", // optional
       }));
-
-
-      console.log("📦 Normalized materials list:", normalized);
-
-      // Update project state with normalized materials
-      setProject((prev) => ({
-        ...prev,
-        materials: normalized,
-      }));
+      setProject((prev) => ({ ...prev, materials: normalized }));
     } catch (err) {
       console.error("❌ Failed to load project materials:", err);
       toast.error("Failed to load project materials.");
     }
   };
 
-  /* ✅ FETCH ASSIGNMENTS */
+  /* FETCH ASSIGNMENTS */
   const fetchAssignments = async () => {
     setLoadingAssignments(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/projects/${projectId}/assignments`, {
-        headers: authHeaders(),
-      });
-
+      const res = await fetch(`${API_BASE_URL}/api/v1/projects/${projectId}/assignments`, { headers: authHeaders() });
       if (!res.ok) return;
-
       const payload = await res.json();
       const data = payload.data ?? payload;
-
-      console.log("✅ Assignments payload:", data);
-
       setAssignments(data);
       setProjectWorkers(data.Workers ?? data.workers ?? []);
-    } catch {
+    } catch (err) {
+      console.error("Error loading assignments:", err);
       toast.error("Error loading assignments.");
     } finally {
       setLoadingAssignments(false);
@@ -240,46 +193,36 @@ const ProjectDashboard = () => {
 
   const fetchAllWorkers = async () => {
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/v1/worker?page=1&pageSize=200`,
-        { headers: authHeaders() }
-      );
-
+      const res = await fetch(`${API_BASE_URL}/api/v1/worker?page=1&pageSize=200`, { headers: authHeaders() });
       const payload = await res.json();
-
-      console.log("✅ Workers API full payload:", payload);
-
       const list =
         payload?.data?.items ??
         payload?.items ??
         (Array.isArray(payload?.data) ? payload.data : []) ??
         (Array.isArray(payload) ? payload : []);
-
-      console.log("✅ Extracted workers list:", list);
-
-      // ✅ Log each worker's ID clearly
       list.forEach((w, i) => {
         console.log(`Worker #${i + 1} ID:`, w.id);
       });
-
       setAllWorkers(list);
     } catch (err) {
+      console.error("Error fetching workers:", err);
       toast.error("Error fetching workers.");
     }
   };
 
-  /* ✅ FETCH SUPERVISORS */
+  /* FETCH SUPERVISORS */
   const fetchSupervisors = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/v1/supervisors`, { headers: authHeaders() });
       const payload = await res.json();
       setSupervisors(payload.data ?? payload);
-    } catch {
+    } catch (err) {
+      console.error("Error loading supervisors:", err);
       toast.error("Error loading supervisors.");
     }
   };
 
-  /* ✅ CREATE TASK */
+  /* CREATE TASK */
   const handleCreateTask = async (taskPayload) => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/v1/task/create`, {
@@ -287,88 +230,77 @@ const ProjectDashboard = () => {
         headers: authHeaders(),
         body: JSON.stringify(taskPayload),
       });
-
       const payload = await res.json();
       if (!res.ok) {
         toast.error(payload.message ?? "Failed to create task.");
         return;
       }
-
       toast.success("Task created.");
       fetchTasks();
       setIsAddTaskOpen(false);
-    } catch {
+    } catch (err) {
+      console.error("Error creating task:", err);
       toast.error("Error creating task.");
     }
   };
 
-  /* ✅ ASSIGN WORKER TO PROJECT */
+  /* ASSIGN WORKER TO PROJECT */
   const assignWorkerToProject = async (workerId) => {
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/v1/projects/${projectId}/assign-worker?workerId=${workerId}`,
-        { method: "POST", headers: authHeaders() }
-      );
-
+      const res = await fetch(`${API_BASE_URL}/api/v1/projects/${projectId}/assign-worker?workerId=${workerId}`, {
+        method: "POST",
+        headers: authHeaders(),
+      });
       const payload = await res.json();
       if (!res.ok) return toast.error(payload.message);
-
       toast.success("Worker assigned to project.");
       fetchAssignments();
       setShowWorkerAssign(false);
-    } catch {
+    } catch (err) {
+      console.error("Error assigning worker:", err);
       toast.error("Error assigning worker.");
     }
   };
 
   const assignWorkerToTaskApi = async (taskId, workerId) => {
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/v1/task/${taskId}/assign/${workerId}`,
-        {
-          method: "POST",
-          headers: authHeaders(),
-        }
-      );
-
+      const res = await fetch(`${API_BASE_URL}/api/v1/task/${taskId}/assign/${workerId}`, {
+        method: "POST",
+        headers: authHeaders(),
+      });
       const payload = await res.json();
-
       if (!res.ok) {
         toast.error(payload.message ?? "Failed to assign worker.");
         return;
       }
-
       toast.success("Worker assigned to task successfully.");
-      fetchTasks(); // refresh tasks
-      fetchAssignments(); // refresh workers
+      fetchTasks();
+      fetchAssignments();
     } catch (err) {
       console.error(err);
       toast.error("Error assigning worker to task.");
     }
   };
 
-
-  /* ✅ ASSIGN SUPERVISOR */
+  /* ASSIGN SUPERVISOR */
   const assignSupervisorToProject = async (supervisorId, level = 0) => {
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/v1/projects/${projectId}/assign-supervisor?supervisorId=${supervisorId}&level=${level}`,
-        { method: "POST", headers: authHeaders() }
-      );
-
+      const res = await fetch(`${API_BASE_URL}/api/v1/projects/${projectId}/assign-supervisor?supervisorId=${supervisorId}&level=${level}`, {
+        method: "POST",
+        headers: authHeaders(),
+      });
       const payload = await res.json();
-      if (!res.ok || payload.isSuccess === false)
-        return toast.error(payload.message);
-
+      if (!res.ok || payload.isSuccess === false) return toast.error(payload.message);
       toast.success("Supervisor assigned.");
       fetchAssignments();
       setShowSupervisorAssign(false);
-    } catch {
+    } catch (err) {
+      console.error("Error assigning supervisor:", err);
       toast.error("Error assigning supervisor.");
     }
   };
 
-  /* ✅ MATERIALS */
+  /* ADD PROJECT MATERIAL (unchanged) */
   const addProjectMaterial = async ({ name, TotalQuantity }) => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/v1/material/create`, {
@@ -376,60 +308,94 @@ const ProjectDashboard = () => {
         headers: authHeaders(),
         body: JSON.stringify({ name, TotalQuantity, projectId }),
       });
-
       const payload = await res.json();
       if (!res.ok) return toast.error(payload.message);
-
       toast.success("Material added.");
       fetchProjectMaterials();
-    } catch {
+    } catch (err) {
+      console.error("Error adding material:", err);
       toast.error("Error adding material.");
     }
   };
 
-
+  /* ASSIGN MATERIALS TO TASK */
   const handleAssignMaterialsToTask = async (taskId, selectedMaterials) => {
     const currentUserId = localStorage.getItem("userId")?.trim().toLowerCase();
-    console.log("🟢 Current logged-in user ID:", currentUserId);
-
-    console.log("🟢 Supervisors for this project:", assignments.supervisors);
-
-    const isSupervisor = assignments.supervisors.some(
-      (s) => s.userId?.trim().toLowerCase() === currentUserId
-    );
-    console.log("🟢 Is current user a supervisor?", isSupervisor);
+    const isSupervisor = assignments.supervisors.some((s) => s.userId?.trim().toLowerCase() === currentUserId);
 
     if (!isSupervisor) {
       toast.error("You are not a supervisor for this project.");
       return;
     }
-
     if (!selectedMaterials || selectedMaterials.length === 0) {
       toast.warn("No materials selected.");
       return;
     }
-
     try {
       const res = await fetch(`${API_BASE_URL}/api/v1/task/${taskId}/assign-materials`, {
         method: "POST",
         headers: authHeaders(),
         body: JSON.stringify({ materials: selectedMaterials }),
       });
-
       const payload = await res.json();
-      console.log("🟢 Assign materials API response:", payload);
-
       if (!res.ok) {
         toast.error(payload.message ?? "Failed to assign materials.");
         return;
       }
-
       toast.success("Materials assigned to task.");
-      fetchTasks(); // refresh tasks to show assigned materials
-      setSelectedTaskMaterials(null); // close modal
+      fetchTasks();
+      setSelectedTaskMaterials(null);
     } catch (err) {
       console.error("❌ Error assigning materials:", err);
       toast.error("Error assigning materials to task.");
+    }
+  };
+
+  /* SHOW INCREASE MODAL (opens your external IncreaseMaterialModal) */
+  const openIncreaseModal = (material) => {
+    setMaterialToIncrease(material);
+    setShowIncreaseModal(true);
+  };
+
+  const closeIncreaseModal = () => {
+    setShowIncreaseModal(false);
+    setMaterialToIncrease(null);
+  };
+
+  const confirmIncrease = async (materialName, amountToAdd) => {
+    const mat = project.materials.find((m) => m.name === materialName);
+    if (!mat) {
+      toast.error("Material not found.");
+      closeIncreaseModal();
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/material/increase`, {
+        method: "PUT",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          id: mat.id,
+          increaseBy: parseInt(amountToAdd, 10),
+        }),
+      });
+
+      const payload = await res.json();
+
+      if (!res.ok) {
+        toast.error(payload.message ?? "Failed to increase material.");
+        return;
+      }
+
+      toast.success(`Increased ${mat.name} by ${amountToAdd}.`);
+
+      await fetchProjectMaterials();
+      fetchTasks();
+    } catch (err) {
+      console.error("ERROR:", err);
+      toast.error("Error increasing material.");
+    } finally {
+      closeIncreaseModal();
     }
   };
 
@@ -443,18 +409,17 @@ const ProjectDashboard = () => {
           quantity: (material.quantity ?? 0) + 1,
         }),
       });
-
       const payload = await res.json();
       if (!res.ok) return toast.error(payload.message);
-
       toast.success("Material updated.");
       fetchProject();
-    } catch {
+    } catch (err) {
+      console.error("Error updating material:", err);
       toast.error("Error updating material.");
     }
   };
 
-  /* ✅ UI helpers */
+  /* UI helpers */
   const openAssignWorker = (task) => setAssignWorkerTask(task);
   const openWorkersModal = (task) => setSelectedTaskForWorkers(task);
   const openMaterialsModal = (task) => setSelectedTaskMaterials(task);
@@ -465,7 +430,7 @@ const ProjectDashboard = () => {
       <Sidebar userId={userId} />
 
       <main className="tt-main">
-        {/* ✅ Top Bar */}
+        {/* Top Bar */}
         <div className="tt-topbar">
           <div className="tt-topbar-left">
             <button className="back-btn" onClick={handleBack}>
@@ -476,9 +441,7 @@ const ProjectDashboard = () => {
               <h1 className="tt-project-title">{project.name}</h1>
               <div className="tt-project-meta">
                 <span className="tt-project-id">{project.code}</span>
-                <span className={`tt-badge ${String(project.status).toLowerCase()}`}>
-                  {project.status}
-                </span>
+                <span className={`tt-badge ${String(project.status).toLowerCase()}`}>{project.status}</span>
               </div>
             </div>
           </div>
@@ -499,16 +462,12 @@ const ProjectDashboard = () => {
           </div>
         </div>
 
-        {/* ✅ Main Card */}
+        {/* Main Card */}
         <div className="tt-card">
           <div className="tt-card-top">
             <div className="tt-tabs">
               {tabs.map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setActiveTab(t)}
-                  className={`tt-tab ${activeTab === t ? "active" : ""}`}
-                >
+                <button key={t} onClick={() => setActiveTab(t)} className={`tt-tab ${activeTab === t ? "active" : ""}`}>
                   {t}
                 </button>
               ))}
@@ -534,8 +493,8 @@ const ProjectDashboard = () => {
           </div>
 
           <div className="tt-card-body">
-            {/* ✅ TASKS TABLE */}
-            {(activeTab === "Tasks" || activeTab === "Summary") && (
+            {/* TASKS TABLE */}
+            {activeTab === "Tasks" && (
               <div className="tt-tasks-table-wrap">
                 {loadingTasks ? (
                   <div className="muted">Loading tasks...</div>
@@ -570,35 +529,27 @@ const ProjectDashboard = () => {
 
                             <td>{task.assignedWorkers?.join(", ") || "—"}</td>
 
-                            <td
-                              className="clickable"
-                              onClick={() => openWorkersModal(task)}
-                            >
+                            <td className="clickable" onClick={() => openWorkersModal(task)}>
                               {task.assignedWorkers.length === 0
                                 ? "No workers"
                                 : task.assignedWorkers.length <= 3
                                   ? task.assignedWorkers.join(", ")
-                                  : `${task.assignedWorkers[0]}, ${task.assignedWorkers[1]} and ${task.assignedWorkers.length - 2
-                                  } others`}
+                                  : `${task.assignedWorkers[0]}, ${task.assignedWorkers[1]} and ${task.assignedWorkers.length - 2} others`}
                             </td>
 
-                            <td className="clickable" onClick={() => setTaskMaterialsView(task)}>                              {task.materials.length === 0
-                              ? "No materials"
-                              : task.materials.length <= 2
-                                ? task.materials.map((m) => m.name).join(", ")
-                                : `${task.materials[0].name}, ${task.materials[1].name} and ${task.materials.length - 2
-                                } more`}
+                            <td className="clickable" onClick={() => setTaskMaterialsView(task)}>
+                              {task.materials.length === 0
+                                ? "No materials"
+                                : task.materials.length <= 2
+                                  ? task.materials.map((m) => m.name).join(", ")
+                                  : `${task.materials[0].name}, ${task.materials[1].name} and ${task.materials.length - 2} more`}
                             </td>
 
                             <td>{task.due}</td>
 
                             <td>
                               <span
-                                className={`status-pill ${task.status === "Completed"
-                                  ? "completed"
-                                  : task.status === "InProgress"
-                                    ? "inprogress"
-                                    : "pending"
+                                className={`status-pill ${task.status === "Completed" ? "completed" : task.status === "InProgress" ? "inprogress" : "pending"
                                   }`}
                               >
                                 {task.status}
@@ -609,14 +560,10 @@ const ProjectDashboard = () => {
                               <button className="tt-small-btn" onClick={() => openAssignWorker(task)}>
                                 Assign Worker
                               </button>
-                              <button
-                                className="tt-small-btn outline"
-                                onClick={() => setSelectedTaskMaterials(task)}
-                              >
+                              <button className="tt-small-btn outline" onClick={() => setSelectedTaskMaterials(task)}>
                                 Assign Materials
                               </button>
                             </td>
-
                           </tr>
                         ))
                       )}
@@ -626,41 +573,68 @@ const ProjectDashboard = () => {
               </div>
             )}
 
-            {activeTab === "Work Logs" && (
-              <div className="muted">Work logs coming soon.</div>
-            )}
+            {activeTab === "Work Logs" && <div className="muted">Work logs coming soon.</div>}
 
+            {/* MATERIALS TAB - Card Grid Style */}
             {activeTab === "Materials" && (
               <div className="tt-materials-wrap">
-                <h2>Project Materials</h2>
+                <div className="materials-header">
+                  <h2>Project Materials</h2>
+                  <p className="muted">Manage and increase your project materials quickly.</p>
+                </div>
 
-                {/* Loading state */}
-                {loadingProject && project.materials.length === 0 ? (
-                  <div className="muted">Loading materials...</div>
-                ) : null}
+                {loadingProject && project.materials.length === 0 ? <div className="muted">Loading materials...</div> : null}
 
-                <ul>
-                  {project.materials && project.materials.length > 0 ? (
-                    project.materials.map((m) => (
-                      <li key={m.id}>
-                        {m.name} — <strong>{m.quantity ?? 0}</strong>
-                      </li>
-                    ))
+                <div className="materials-grid">
+                  {(project.materials || []).length === 0 ? (
+                    <div className="muted">No materials yet.</div>
                   ) : (
-                    <li className="muted">No materials yet.</li>
+                    (project.materials || []).map((m) => (
+                      <div className="material-card" key={m.id}>
+                        <div className="material-card-top">
+                          <div className="material-name">{m.name}</div>
+                          <div className="material-unit">{m.unit ? m.unit : ""}</div>
+                        </div>
+
+                        <div className="material-qty">
+                          <div className="qty-label">Quantity</div>
+                          <div className="qty-value">{m.quantity ?? 0}</div>
+                        </div>
+
+                        <div className="material-available">
+                          <div className="small muted">Available</div>
+                          <div className="avail-value">{m.availableQuantity ?? m.quantity ?? 0}</div>
+                        </div>
+
+                        <div className="material-actions">
+                          <button className="tt-small-btn" onClick={() => openIncreaseModal(m)} title="Increase quantity">
+                            <FiPlusCircle /> Increase
+                          </button>
+
+                          <button
+                            className="tt-small-btn outline"
+                            onClick={() => {
+                              // quick +1 if you still want a quick action
+                              confirmIncrease(m.name, 1);
+                            }}
+                            title="Quick +1"
+                          >
+                            +1
+                          </button>
+                        </div>
+                      </div>
+                    ))
                   )}
-                </ul>
+                </div>
               </div>
             )}
 
-            {activeTab === "Attendance" && (
-              <div className="muted">Attendance coming soon.</div>
-            )}
+            {activeTab === "Attendance" && <div className="muted">Attendance coming soon.</div>}
           </div>
         </div>
       </main>
 
-
+      {/* Modals */}
       {isAddTaskOpen && (
         <AddTaskModal
           projectId={projectId}
@@ -672,21 +646,11 @@ const ProjectDashboard = () => {
       )}
 
       {selectedTaskMaterials && (
-        <MaterialsModal
-          onClose={() => setSelectedTaskMaterials(null)}
-          materials={project.materials} // all project materials
-          task={selectedTaskMaterials}   // the task we're assigning to
-          onAssign={handleAssignMaterialsToTask} // handler for assigning
-        />
+        <MaterialsModal onClose={() => setSelectedTaskMaterials(null)} materials={project.materials} task={selectedTaskMaterials} onAssign={handleAssignMaterialsToTask} />
       )}
 
       {showWorkerAssign && (
-        <AssignWorkerToProjectModal
-          onClose={() => setShowWorkerAssign(false)}
-          onAssign={assignWorkerToProject}
-          fetchAllWorkers={fetchAllWorkers}
-          allWorkers={allWorkers}
-        />
+        <AssignWorkerToProjectModal onClose={() => setShowWorkerAssign(false)} onAssign={assignWorkerToProject} fetchAllWorkers={fetchAllWorkers} allWorkers={allWorkers} />
       )}
 
       {assignWorkerTask && (
@@ -700,27 +664,13 @@ const ProjectDashboard = () => {
       )}
 
       {showSupervisorAssign && (
-        <AssignSupervisorModal
-          supervisors={supervisors}
-          fetchSupervisors={fetchSupervisors}
-          onClose={() => setShowSupervisorAssign(false)}
-          onAssign={assignSupervisorToProject}
-        />
+        <AssignSupervisorModal supervisors={supervisors} fetchSupervisors={fetchSupervisors} onClose={() => setShowSupervisorAssign(false)} onAssign={assignSupervisorToProject} />
       )}
 
       {selectedTaskForWorkers && (
-        <ModalShell
-          title={`Workers — ${selectedTaskForWorkers.name}`}
-          onClose={() => setSelectedTaskForWorkers(null)}
-        >
+        <ModalShell title={`Workers — ${selectedTaskForWorkers.name}`} onClose={() => setSelectedTaskForWorkers(null)}>
           <ul>
-            {selectedTaskForWorkers.assignedWorkers.length === 0 ? (
-              <li className="muted">No workers assigned</li>
-            ) : (
-              selectedTaskForWorkers.assignedWorkers.map((w, i) => (
-                <li key={i}>{w}</li>
-              ))
-            )}
+            {selectedTaskForWorkers.assignedWorkers.length === 0 ? <li className="muted">No workers assigned</li> : selectedTaskForWorkers.assignedWorkers.map((w, i) => <li key={i}>{w}</li>)}
           </ul>
 
           <div className="pd-modal-actions">
@@ -732,25 +682,17 @@ const ProjectDashboard = () => {
       )}
 
       {showProjectMaterialsModal && (
-        <ProjectMaterialsModal
-          onClose={() => setShowProjectMaterialsModal(false)}
-          projectId={projectId}
-          materials={project.materials}
-          onAddMaterial={addProjectMaterial}
-          onIncrease={increaseMaterial}
-        />
+        <ProjectMaterialsModal onClose={() => setShowProjectMaterialsModal(false)} projectId={projectId} materials={project.materials} onAddMaterial={addProjectMaterial} onIncrease={increaseMaterial} />
       )}
 
-      {taskMaterialsView && (
-        <TaskMaterialsModal
-          task={taskMaterialsView}
-          project={project}         // ✅ Needed to show available quantities
-          onClose={() => setTaskMaterialsView(null)}
-        />
+      {taskMaterialsView && <TaskMaterialsModal task={taskMaterialsView} project={project} onClose={() => setTaskMaterialsView(null)} />}
+
+      {/* Increase material modal (your separate component file) */}
+      {showIncreaseModal && materialToIncrease && (
+        <IncreaseMaterialModal material={materialToIncrease} onClose={closeIncreaseModal} onIncrease={confirmIncrease} />
       )}
     </div>
   );
-
 };
 
 export default ProjectDashboard;

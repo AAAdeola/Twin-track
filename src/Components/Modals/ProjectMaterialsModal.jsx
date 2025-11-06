@@ -3,55 +3,101 @@ import { FiPlusCircle } from "react-icons/fi";
 import ModalShell from "./ModalShell";
 import { toast } from "react-toastify";
 
-const ProjectMaterialsModal = ({ onClose, projectId, materials, onAddMaterial, onIncrease }) => {
+const ProjectMaterialsModal = ({ onClose, projectId, materials = [], onAddMaterial }) => {
   const [name, setName] = useState("");
-  const [qty, setQty] = useState(0);
+  const [qty, setQty] = useState("");
+  const [isAdding, setIsAdding] = useState(false);
 
-  const handleAdd = () => {
-    if (!name || qty <= 0) {
-      toast.error("Provide material name and valid quantity.");
+  // ✅ Normalize existing materials (for checking duplicates)
+  const normalizedMaterials = materials.map((m) => ({
+    id: m.id ?? m.materialId,
+    name: m.name,
+  }));
+
+  // ✅ Add new project material
+  const handleAdd = async () => {
+    if (!name.trim()) {
+      toast.error("Enter material name.");
       return;
     }
-onAddMaterial({ name, TotalQuantity: qty, projectId });
-    setName("");
-    setQty(0);
+
+    if (!qty || qty <= 0) {
+      toast.error("Enter a valid quantity.");
+      return;
+    }
+
+    // ✅ Prevent duplicate material creation
+    const exists = normalizedMaterials.some(
+      (m) => m.name.trim().toLowerCase() === name.trim().toLowerCase()
+    );
+
+    if (exists) {
+      toast.error(`"${name}" has already been added. 
+To increase its quantity, go to the Materials tab.`);
+      return;
+    }
+
+    try {
+      setIsAdding(true);
+      await onAddMaterial({ name, TotalQuantity: qty, projectId });
+      toast.success("Material added.");
+
+      setName("");
+      setQty("");
+    } finally {
+      setIsAdding(false);
+    }
   };
 
   return (
-    <ModalShell title="Project Materials" onClose={onClose}>
-      <ul className="pd-material-list">
-        {materials?.length > 0 ? (
-          materials.map((m, i) => (
-            <li key={i}>
-              <strong>{m.name}</strong> — {m.quantity ?? m.available ?? "-"}
-              <button className="small" onClick={() => onIncrease(m)}>
-                + increase
-              </button>
-            </li>
-          ))
-        ) : (
-          <li className="muted">No materials yet</li>
-        )}
-      </ul>
+    <ModalShell title="Add Material to Project" onClose={isAdding ? undefined : onClose}>
 
+      {/* ✅ Material Name */}
       <div className="form-row">
-        <label>Add Material</label>
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Cement" />
+        <label>Material Name</label>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g., Cement"
+          disabled={isAdding}
+        />
       </div>
 
+      {/* ✅ Quantity */}
       <div className="form-row">
         <label>Quantity</label>
-        <input type="number" value={qty} onChange={(e) => setQty(Number(e.target.value))} />
+        <input
+          type="number"
+          value={qty}
+          onChange={(e) => setQty(Number(e.target.value))}
+          placeholder="e.g., 20"
+          disabled={isAdding}
+        />
       </div>
 
+      {/* ✅ Buttons */}
       <div className="pd-modal-actions">
-        <button className="btn" onClick={handleAdd}>
-          <FiPlusCircle /> Add
+        <button
+          className="btn mature-btn"
+          disabled={isAdding}
+          onClick={handleAdd}
+        >
+          {isAdding ? "Adding..." : (
+            <>
+              <FiPlusCircle size={18} /> Add Material
+            </>
+          )}
         </button>
-        <button className="btn btn-outline" onClick={onClose}>
+
+        <button
+          className="btn btn-outline"
+          onClick={onClose}
+          disabled={isAdding}
+        >
           Close
         </button>
       </div>
+
     </ModalShell>
   );
 };

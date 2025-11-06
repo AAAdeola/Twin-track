@@ -41,58 +41,60 @@ const MainDashboard = ({ supervisorName = "Supervisor" }) => {
   }, [timeFilter, token]);
 
   const fetchProjects = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/projects/my-projects`, {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/projects/my-projects`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    const data = await res.json();
+    if (!data.isSuccess) return;
+
+    const projects = data.data;
+    setProjects(projects);
+
+    const workerSet = new Set();
+    const supervisorSet = new Set();
+    let taskCount = 0;
+    let completedTaskCount = 0;
+
+    for (let project of projects) {
+      // Get project assignments
+      const assignRes = await fetch(`${API_BASE_URL}/api/v1/projects/${project.id}/assignments`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      const assignData = await assignRes.json();
+      if (assignData.isSuccess) {
+        // Add workers
+        assignData.data.workers.forEach(w => workerSet.add(w.id));
 
-      const data = await res.json();
-
-      if (!data.isSuccess) return;
-
-      setProjects(data.data);
-
-      let workerCount = 0;
-      let supervisorCount = 0;
-      let taskCount = 0;
-      let completedTaskCount = 0;
-
-      for (let project of data.data) {
-        const statsRes = await fetch(
-          `${API_BASE_URL}/api/v1/projects/${project.id}/stats`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        const statsData = await statsRes.json();
-
-        if (statsData.isSuccess) {
-          taskCount += statsData.data.totalTasks;
-          completedTaskCount += statsData.data.tasksCompleted;
-        }
-
-        const assignRes = await fetch(
-          `${API_BASE_URL}/api/v1/projects/${project.id}/assignments`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        const assignData = await assignRes.json();
-
-        if (assignData.isSuccess) {
-          workerCount += assignData.data.workers.length;
-          supervisorCount += assignData.data.supervisors.length;
-        }
+        // Add supervisors if not lead
+        assignData.data.supervisors
+          .filter(s => !s.isLead) // exclude leads
+          .forEach(s => supervisorSet.add(s.id));
       }
 
-      setTotalWorkers(workerCount);
-      setTotalSupervisors(supervisorCount);
-      setTotalTasks(taskCount);
-      setCompletedTasks(completedTaskCount);
-    } catch (err) {
-      console.error("Error loading dashboard info:", err);
+      // Get project tasks
+      const statsRes = await fetch(`${API_BASE_URL}/api/v1/projects/${project.id}/tasks`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const statsData = await statsRes.json();
+      if (statsData.isSuccess) {
+        statsData.data.forEach(task => {
+          taskCount++;
+          if (task.status === "Completed") completedTaskCount++;
+        });
+      }
     }
-  };
+
+    setTotalWorkers(workerSet.size);
+    setTotalSupervisors(supervisorSet.size);
+    setTotalTasks(taskCount);
+    setCompletedTasks(completedTaskCount);
+
+  } catch (err) {
+    console.error("Error loading dashboard info:", err);
+  }
+};
 
   const fetchAnalytics = async (range) => {
     try {

@@ -9,11 +9,14 @@ const AddTaskModal = ({ projectId, onClose, onCreate, fetchProjectWorkers, proje
   const [selectedWorker, setSelectedWorker] = useState(null);
   const [search, setSearch] = useState("");
 
+  // ✅ NEW: track loading state
+  const [isCreating, setIsCreating] = useState(false);
+
   useEffect(() => {
     if (!projectWorkers || projectWorkers.length === 0) fetchProjectWorkers();
   }, []);
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!name || !deadline) {
       toast.error("Task name and deadline are required.");
       return;
@@ -27,7 +30,12 @@ const AddTaskModal = ({ projectId, onClose, onCreate, fetchProjectWorkers, proje
       projectId,
     };
 
-    onCreate(payload);
+    try {
+      setIsCreating(true); // ✅ start loading
+      await onCreate(payload); // wait for parent to finish creating
+    } finally {
+      setIsCreating(false); // ✅ reset
+    }
   };
 
   const filtered = (projectWorkers || []).filter((w) =>
@@ -75,8 +83,15 @@ const AddTaskModal = ({ projectId, onClose, onCreate, fetchProjectWorkers, proje
       </ul>
 
       <div className="pd-modal-actions">
-        <button className="btn" onClick={handleCreate}>Create</button>
-        <button className="btn btn-outline" onClick={onClose}>Cancel</button>
+
+        {/* ✅ Button updates text & disables while creating */}
+        <button className="btn" onClick={handleCreate} disabled={isCreating}>
+          {isCreating ? "Creating..." : "Create"}
+        </button>
+
+        <button className="btn btn-outline" onClick={onClose} disabled={isCreating}>
+          Cancel
+        </button>
       </div>
     </ModalShell>
   );

@@ -13,6 +13,7 @@ import Sidebar from "../Sidebar/Sidebar";
 import AddNewProject from "../Add-New-Project/AddNewProject";
 import ConfirmDialog from "../ConfirmDialog/ConfirmDialog";
 import ViewAllMaterialsModal from "../ViewAllMaterialsModal/ViewAllMaterialsModal";
+import { toast } from "react-toastify"; // ✅ ADDED
 import "./ProjectsList.css";
 
 const ProjectsList = () => {
@@ -21,6 +22,9 @@ const ProjectsList = () => {
   const token = localStorage.getItem("authToken");
 
   const [projects, setProjects] = useState([]);
+  const [loadingProjects, setLoadingProjects] = useState(false); // ✅ NEW
+  const [fetchError, setFetchError] = useState(false); // ✅ NEW
+
   const [isAddProjectOpen, setIsAddProjectOpen] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState(null);
@@ -37,43 +41,61 @@ const ProjectsList = () => {
     Authorization: `Bearer ${token}`,
   });
 
-  // ✅ FETCH REAL PROJECTS (AUTH REQUIRED)
+  // ✅ FETCH PROJECTS WITH LOADING + ERROR HANDLING
   useEffect(() => {
-  const fetchProjects = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/projects/my-projects`, { headers: authHeaders() });
-      const data = await response.json();
+    const fetchProjects = async () => {
+      setLoadingProjects(true);
+      setFetchError(false);
 
-      console.log("Projects fetched from backend:", data);
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/api/v1/projects/my-projects`,
+          { headers: authHeaders() }
+        );
 
-      if (response.ok && data.data) {
-        const formattedProjects = data.data.map((p) => ({
-          id: p.id,
-          name: p.name,
-          location: p.location,
-          supervisors: [],
-          startDate: p.startDate || "Not set",
-          materials: [],
-          status:
-            p.status === 0
-              ? "Pending"
-              : p.status === 1
-              ? "Active"
-              : p.status === 2
-              ? "Completed"
-              : "Pending",
-        }));
+        const data = await response.json();
 
-        setProjects(formattedProjects);
+        console.log("Projects fetched from backend:", data);
+
+        if (!response.ok) {
+          toast.error(data.message || "Failed to load projects.");
+          setFetchError(true);
+          return;
+        }
+
+        if (data.data) {
+          const formattedProjects = data.data.map((p) => ({
+            id: p.id,
+            name: p.name,
+            location: p.location,
+            supervisors: [],
+            startDate: p.startDate || "Not set",
+            materials: [],
+            status:
+              p.status === 0
+                ? "Pending"
+                : p.status === 1
+                ? "Active"
+                : p.status === 2
+                ? "Completed"
+                : "Pending",
+          }));
+
+          setProjects(formattedProjects);
+        }
+      } catch (err) {
+        console.error("Error fetching projects:", err);
+        toast.error("Unable to load projects. Please try again.");
+        setFetchError(true);
+      } finally {
+        setLoadingProjects(false);
       }
-    } catch (err) {
-      console.error("Error fetching projects:", err);
-    }
-  };
+    };
 
-  fetchProjects();
-}, [API_BASE_URL]);
+    fetchProjects();
+  }, [API_BASE_URL]);
 
+  // ✅ Add newly created project to UI
   const handleCreateProject = (newProject) => {
     setProjects((prev) => [
       ...prev,
@@ -88,10 +110,10 @@ const ProjectsList = () => {
           newProject.status === 0
             ? "Pending"
             : newProject.status === 1
-              ? "Active"
-              : newProject.status === 2
-                ? "Completed"
-                : "Pending",
+            ? "Active"
+            : newProject.status === 2
+            ? "Completed"
+            : "Pending",
       },
     ]);
   };
@@ -105,7 +127,7 @@ const ProjectsList = () => {
     }
   };
 
-  // ✅ OPEN PROJECT DASHBOARD WITH USER ID
+  // ✅ NAVIGATE TO PROJECT DASHBOARD
   const handleCardClick = (project) => {
     navigate(`/project/${project.id}/${userId}`, { state: { project } });
   };
@@ -115,6 +137,7 @@ const ProjectsList = () => {
     const matchesSearch = proj.name
       .toLowerCase()
       .includes(searchQuery.toLowerCase());
+
     const matchesStatus =
       statusFilter === "All" || proj.status === statusFilter;
 
@@ -153,6 +176,7 @@ const ProjectsList = () => {
               placeholder="Search projects..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              disabled={loadingProjects}
             />
           </div>
 
@@ -161,6 +185,7 @@ const ProjectsList = () => {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
+              disabled={loadingProjects}
             >
               <option value="All">All Statuses</option>
               <option value="Active">Active</option>
@@ -169,66 +194,88 @@ const ProjectsList = () => {
             </select>
           </div>
 
-          <button className="tt-add-btn" onClick={() => setIsAddProjectOpen(true)}>
+          <button
+            className="tt-add-btn"
+            onClick={() => setIsAddProjectOpen(true)}
+            disabled={loadingProjects}
+          >
             <FiPlus /> Add New Project
           </button>
         </div>
 
-        {/* ✅ Project Cards */}
+        {/* ✅ PROJECT LIST CARD */}
         <div className="tt-card">
           <div className="tt-card-top">
             <h2>All Projects</h2>
           </div>
 
           <div className="tt-card-body">
-            <div className="tt-projects-grid">
-              {filteredProjects.length > 0 ? (
-                filteredProjects.map((proj) => (
-                  <div
-                    key={proj.id}
-                    className="tt-project-card large"
-                    onClick={() => handleCardClick(proj)}
-                  >
-                    <div className="tt-project-header">
-                      <h3>{proj.name}</h3>
-                      <span
-                        className={`status-pill ${proj.status === "Active"
-                            ? "completed"
-                            : proj.status === "Pending"
+            {/* ✅ LOADING */}
+            {loadingProjects && (
+              <p className="muted" style={{ padding: "20px" }}>
+                Loading projects…
+              </p>
+            )}
+
+            {/* ✅ ERROR FALLBACK */}
+            {fetchError && !loadingProjects && (
+              <p className="error-text" style={{ padding: "20px" }}>
+                Failed to load projects. Please refresh.
+              </p>
+            )}
+
+            {/* ✅ PROJECT GRID */}
+            {!loadingProjects && !fetchError && (
+              <div className="tt-projects-grid">
+                {filteredProjects.length > 0 ? (
+                  filteredProjects.map((proj) => (
+                    <div
+                      key={proj.id}
+                      className="tt-project-card large"
+                      onClick={() => handleCardClick(proj)}
+                    >
+                      <div className="tt-project-header">
+                        <h3>{proj.name}</h3>
+                        <span
+                          className={`status-pill ${
+                            proj.status === "Active"
+                              ? "completed"
+                              : proj.status === "Pending"
                               ? "inprogress"
                               : "pending"
                           }`}
-                      >
-                        {proj.status}
-                      </span>
+                        >
+                          {proj.status}
+                        </span>
+                      </div>
+
+                      <p className="muted">
+                        <strong>Location:</strong> {proj.location}
+                      </p>
+
+                      <p className="muted start-date">
+                        <FiCalendar /> Start: {proj.startDate || "Not set"}
+                      </p>
+
+                      <div className="project-actions">
+                        <button
+                          className="delete-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setProjectToDelete(proj);
+                            setShowDeleteModal(true);
+                          }}
+                        >
+                          <FiTrash2 /> Delete
+                        </button>
+                      </div>
                     </div>
-
-                    <p className="muted">
-                      <strong>Location:</strong> {proj.location}
-                    </p>
-
-                    <p className="muted start-date">
-                      <FiCalendar /> Start: {proj.startDate || "Not set"}
-                    </p>
-
-                    <div className="project-actions">
-                      <button
-                        className="delete-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setProjectToDelete(proj);
-                          setShowDeleteModal(true);
-                        }}
-                      >
-                        <FiTrash2 /> Delete
-                      </button>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p className="no-projects">No projects found.</p>
-              )}
-            </div>
+                  ))
+                ) : (
+                  <p className="no-projects">No projects found.</p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </main>
