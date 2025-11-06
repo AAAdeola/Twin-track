@@ -239,3 +239,31 @@
   color: #777;
   padding: 1rem;
 }
+
+/* Make the suspend/retain buttons inline-flex so icon and text are horizontal */
+.suspend-btn {
+  display: inline-flex;
+  align-items: center;  /* vertically center icon & text */
+  gap: 4px;             /* space between icon and text */
+  padding: 4px 10px;    /* smaller padding to make button compact */
+  font-size: 0.9rem;    /* slightly smaller text */
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+/* Optional: different colors for suspend/retain */
+.suspend-btn.suspend {
+  background-color: #ff4d4f; /* red */
+  color: white;
+}
+
+.suspend-btn.retain {
+  background-color: #52c41a; /* green */
+  color: white;
+}
+
+.suspend-btn:hover {
+  opacity: 0.85;
+}

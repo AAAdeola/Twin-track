@@ -1,5 +1,14 @@
+// ✅ FULL UPDATED FILE WITH FIXED GUID SPLITTING AND REMOVAL LOGIC
+
 import React, { useEffect, useState } from "react";
-import { FiTrash2, FiSlash, FiCheck, FiUser, FiSearch, FiBell } from "react-icons/fi";
+import {
+  FiTrash2,
+  FiSlash,
+  FiCheck,
+  FiUser,
+  FiSearch,
+  FiBell,
+} from "react-icons/fi";
 import { toast } from "react-toastify";
 import Sidebar from "../Sidebar/Sidebar";
 import ConfirmDialog from "../ConfirmDialog/ConfirmDialog";
@@ -11,36 +20,45 @@ const SupervisorsList = () => {
   const token = localStorage.getItem("authToken");
 
   const [supervisors, setSupervisors] = useState([]);
-  const [selectedItems, setSelectedItems] = useState({});
+  const [selectedProjects, setSelectedProjects] = useState({});
   const [showConfirm, setShowConfirm] = useState(false);
   const [currentSupervisor, setCurrentSupervisor] = useState(null);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("All");
+
+  const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState(false);
 
   const authHeaders = () => ({
     "Content-Type": "application/json",
     Authorization: `Bearer ${token}`,
   });
 
-  // Fetch supervisors assigned to current user
+  // ✅ Fetch supervisors
   const fetchSupervisors = async () => {
+    setLoading(true);
+    setFetchError(false);
+
     try {
       const res = await fetch(`${API_BASE_URL}/api/v1/supervisors/assigned`, {
         headers: authHeaders(),
       });
 
       const payload = await res.json();
-      console.log("✅ Supervisors fetched from backend:", payload.data);
 
       if (!res.ok || !payload.isSuccess) {
         toast.error(payload.message || "Failed to load supervisors.");
+        setFetchError(true);
         return;
       }
 
-      setSupervisors(payload.data);
+      setSupervisors(payload.data || []);
     } catch (err) {
-      console.error(err);
       toast.error("Error loading supervisors.");
+      setFetchError(true);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -48,10 +66,11 @@ const SupervisorsList = () => {
     fetchSupervisors();
   }, []);
 
-  // Toggle selection for project/task checkboxes
-  const toggleItemSelect = (supervisorId, projectId, taskId = null) => {
-    const key = taskId ? `${supervisorId}-${projectId}-${taskId}` : `${supervisorId}-${projectId}`;
-    setSelectedItems((prev) => {
+  // ✅ Only project selection
+  const toggleProjectSelect = (supervisorId, projectId) => {
+    const key = `${supervisorId}::${projectId}`;  // ✅ SAFE KEY
+
+    setSelectedProjects((prev) => {
       const updated = { ...prev };
       if (updated[key]) delete updated[key];
       else updated[key] = true;
@@ -59,70 +78,75 @@ const SupervisorsList = () => {
     });
   };
 
-  // Open confirmation dialog for removal
+  // ✅ Remove button clicked
   const handleRemoveClick = (supervisor) => {
-    const hasAny = Object.keys(selectedItems).some((k) => k.startsWith(supervisor.supervisorId));
+    const hasAny = Object.keys(selectedProjects).some((k) =>
+      k.startsWith(supervisor.supervisorId)
+    );
+
     if (!hasAny) {
-      toast.warn("Select a project or task to remove.");
+      toast.warn("Select a project to remove.");
       return;
     }
+
     setCurrentSupervisor(supervisor);
     setShowConfirm(true);
   };
 
-  // Confirm removal → call backend
+  // ✅ Confirm removal
   const confirmRemove = async () => {
     if (!currentSupervisor) return;
 
-    const removalPayload = {
-      removeProjects: [],
-      removeTasks: [],
-    };
+    const payload = { Assignments: [] };
 
-    for (const key of Object.keys(selectedItems)) {
-      const [supId, projectId, taskId] = key.split("-");
-      if (taskId) {
-        removalPayload.removeTasks.push({ SupervisorId: supId, TaskId: taskId });
-      } else {
-        removalPayload.removeProjects.push({ SupervisorId: supId, ProjectId: projectId });
-      }
+    for (const key of Object.keys(selectedProjects)) {
+      const [supId, projectId] = key.split("::");  // ✅ SAFE SPLIT
+
+      payload.Assignments.push({
+        SupervisorId: supId,
+        ProjectId: projectId,
+      });
     }
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/supervisors/remove-assignments`, {
-        method: "DELETE",
-        headers: authHeaders(),
-        body: JSON.stringify(removalPayload),
-      });
+      const res = await fetch(
+        `${API_BASE_URL}/api/v1/supervisors/projects/remove`,
+        {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify(payload),
+        }
+      );
 
-      const payload = await res.json();
+      const json = await res.json();
 
-      if (!res.ok || !payload.isSuccess) {
-        toast.error(payload.message || "Failed to remove assignments.");
+      if (!res.ok || !json.isSuccess) {
+        toast.error(json.message || "Failed to remove supervisor.");
         return;
       }
 
-      toast.success("Supervisor assignments updated.");
-      setSelectedItems({});
+      toast.success("Supervisor removed from project.");
+
+      setSelectedProjects({});
       setShowConfirm(false);
       fetchSupervisors();
     } catch (err) {
-      console.error(err);
-      toast.error("Something went wrong.");
+      toast.error("Error removing supervisor.");
     }
   };
 
-  // Suspend / Retain supervisor
+  // ✅ Suspend / retain
   const toggleSuspend = async (supervisor) => {
     try {
       const endpoint = supervisor.suspended ? "retain" : "suspend";
 
-      const res = await fetch(`${API_BASE_URL}/api/v1/supervisors/${supervisor.supervisorId}/${endpoint}`, {
-        method: "PUT",
-        headers: authHeaders(),
-      });
+      const res = await fetch(
+        `${API_BASE_URL}/api/v1/supervisors/${supervisor.supervisorId}/${endpoint}`,
+        { method: "PUT", headers: authHeaders() }
+      );
 
       const payload = await res.json();
+
       if (!res.ok || !payload.isSuccess) {
         toast.error(payload.message || "Action failed.");
         return;
@@ -130,13 +154,11 @@ const SupervisorsList = () => {
 
       toast.success(payload.message);
       fetchSupervisors();
-    } catch (err) {
-      console.error(err);
-      toast.error("Error updating supervisor status.");
+    } catch {
+      toast.error("Error updating status.");
     }
   };
 
-  // Filter supervisors by search and status
   const filteredSupervisors = supervisors.filter((s) => {
     const matchesSearch = s.fullName.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus =
@@ -151,7 +173,6 @@ const SupervisorsList = () => {
       <Sidebar />
 
       <main className="supervisors-main">
-        {/* Topbar */}
         <header className="topbar">
           <div className="search-bar">
             <FiSearch />
@@ -160,6 +181,7 @@ const SupervisorsList = () => {
               placeholder="Search supervisors..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              disabled={loading}
             />
           </div>
           <div className="topbar-icons">
@@ -171,104 +193,92 @@ const SupervisorsList = () => {
         <section className="content-area">
           <h2 className="page-title">Supervisors List</h2>
 
-          <table className="supervisors-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Projects & Tasks</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
+          {loading && <p className="muted">Loading supervisors…</p>}
+          {fetchError && <p className="error-text">Failed to load supervisors.</p>}
 
-            <tbody>
-              {filteredSupervisors.length > 0 ? (
-                filteredSupervisors.map((sup) => (
-                  <tr key={sup.supervisorId}>
-                    <td className={sup.suspended ? "suspended" : ""}>
-                      <FiUser /> {sup.fullName}
-                    </td>
-
-                    <td>
-                      {(sup.projects || []).map((project) => (
-                        <div key={project.projectId} className="project-block">
-                          <strong>
-                            <input
-                              type="checkbox"
-                              checked={!!selectedItems[`${sup.supervisorId}-${project.projectId}`]}
-                              onChange={() => toggleItemSelect(sup.supervisorId, project.projectId)}
-                              disabled={project.isLead} // disable checkbox if lead
-                            />{" "}
-                            {project.projectName} {project.isLead && "(Lead)"}
-                          </strong>
-
-                          <ul>
-                            {(project.tasks || []).map((task) => {
-                              const key = `${sup.supervisorId}-${project.projectId}-${task.id}`;
-                              return (
-                                <li key={task.id}>
-                                  <label>
-                                    <input
-                                      type="checkbox"
-                                      checked={!!selectedItems[key]}
-                                      onChange={() =>
-                                        toggleItemSelect(sup.supervisorId, project.projectId, task.id)
-                                      }
-                                      disabled={project.isLead} // optionally prevent removing tasks for lead
-                                    />
-                                    {task.name}
-                                  </label>
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        </div>
-                      ))}
-                    </td>
-
-                    <td className="actions">
-  <button
-    className="remove-btn"
-    onClick={() => handleRemoveClick(sup)}
-    disabled={sup.projects.some(p => p.isLead)} // disable if supervisor is a lead in any project
-    title={sup.projects.some(p => p.isLead) ? "Cannot remove a project lead" : ""}
-  >
-    <FiTrash2 /> Remove
-  </button>
-
-  <button
-    className={`suspend-btn ${sup.suspended ? "retain" : "suspend"}`}
-    onClick={() => toggleSuspend(sup)}
-    disabled={sup.projects.some(p => p.isLead)} // disable suspend if supervisor is a lead
-    title={sup.projects.some(p => p.isLead) ? "Cannot suspend a project lead" : ""}
-  >
-    {sup.suspended ? (
-      <>
-        <FiCheck /> Retain
-      </>
-    ) : (
-      <>
-        <FiSlash /> Suspend
-      </>
-    )}
-  </button>
-</td>
-                  </tr>
-                ))
-              ) : (
+          {!loading && !fetchError && (
+            <table className="supervisors-table">
+              <thead>
                 <tr>
-                  <td colSpan="3" className="no-results">
-                    No supervisors found.
-                  </td>
+                  <th>Name</th>
+                  <th>Projects & Tasks</th>
+                  <th>Actions</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+
+              <tbody>
+                {filteredSupervisors.length > 0 ? (
+                  filteredSupervisors.map((sup) => (
+                    <tr key={sup.supervisorId}>
+                      <td className={sup.suspended ? "suspended" : ""}>
+                        <FiUser /> {sup.fullName}
+                      </td>
+
+                      <td>
+                        {(sup.projects || []).map((project) => {
+                          const key = `${sup.supervisorId}::${project.projectId}`;
+
+                          return (
+                            <div key={project.projectId} className="project-block">
+                              <strong>
+                                <input
+                                  type="checkbox"
+                                  checked={!!selectedProjects[key]}
+                                  onChange={() =>
+                                    toggleProjectSelect(sup.supervisorId, project.projectId)
+                                  }
+                                  disabled={project.isLead}
+                                />{" "}
+                                {project.projectName} {project.isLead && "(Lead)"}
+                              </strong>
+
+                              <ul>
+                                {(project.tasks || []).map((task) => (
+                                  <li key={task.id}>{task.name}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          );
+                        })}
+                      </td>
+
+                      <td className="actions">
+                        <button
+                          className="remove-btn"
+                          onClick={() => handleRemoveClick(sup)}
+                          disabled={sup.projects.some((p) => p.isLead)}
+                        >
+                          <FiTrash2 /> Remove
+                        </button>
+
+                        <button
+                          className={`suspend-btn ${
+                            sup.suspended ? "retain" : "suspend"
+                          }`}
+                          onClick={() => toggleSuspend(sup)}
+                          disabled={sup.projects.some((p) => p.isLead)}
+                        >
+                          {sup.suspended ? <><FiCheck /> Retain</> : <><FiSlash /> Suspend</>}
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="3" className="no-results">
+                      No supervisors found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
         </section>
 
         {showConfirm && (
           <ConfirmDialog
             title="Confirm Removal"
-            message={`Are you sure you want to remove the selected assignments for ${currentSupervisor.fullName}?`}
+            message={`Remove selected projects for ${currentSupervisor.fullName}?`}
             onConfirm={confirmRemove}
             onCancel={() => setShowConfirm(false)}
           />

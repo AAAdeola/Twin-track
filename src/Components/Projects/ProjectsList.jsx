@@ -30,6 +30,7 @@ const ProjectsList = () => {
   const [projectToDelete, setProjectToDelete] = useState(null);
   const [selectedProject, setSelectedProject] = useState(null);
   const [showViewMaterialsModal, setShowViewMaterialsModal] = useState(false);
+  const [deletingProjectId, setDeletingProjectId] = useState(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -75,10 +76,10 @@ const ProjectsList = () => {
               p.status === 0
                 ? "Pending"
                 : p.status === 1
-                ? "Active"
-                : p.status === 2
-                ? "Completed"
-                : "Pending",
+                  ? "Active"
+                  : p.status === 2
+                    ? "Completed"
+                    : "Pending",
           }));
 
           setProjects(formattedProjects);
@@ -110,20 +111,41 @@ const ProjectsList = () => {
           newProject.status === 0
             ? "Pending"
             : newProject.status === 1
-            ? "Active"
-            : newProject.status === 2
-            ? "Completed"
-            : "Pending",
+              ? "Active"
+              : newProject.status === 2
+                ? "Completed"
+                : "Pending",
       },
     ]);
   };
 
   // ✅ DELETE PROJECT
-  const handleDelete = () => {
-    if (projectToDelete) {
+  const handleDelete = async () => {
+    if (!projectToDelete) return;
+
+    try {
+      setDeletingProjectId(projectToDelete.id); // mark as deleting
+
+      const res = await fetch(`${API_BASE_URL}/api/v1/projects/${projectToDelete.id}`, {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        toast.error(data?.message || "Failed to delete project.");
+        return;
+      }
+
+      toast.success(`Project "${projectToDelete.name}" deleted successfully.`);
       setProjects(projects.filter((p) => p.id !== projectToDelete.id));
       setShowDeleteModal(false);
       setProjectToDelete(null);
+    } catch (err) {
+      console.error(err);
+      toast.error("Error deleting project.");
+    } finally {
+      setDeletingProjectId(null);
     }
   };
 
@@ -237,13 +259,12 @@ const ProjectsList = () => {
                       <div className="tt-project-header">
                         <h3>{proj.name}</h3>
                         <span
-                          className={`status-pill ${
-                            proj.status === "Active"
+                          className={`status-pill ${proj.status === "Active"
                               ? "completed"
                               : proj.status === "Pending"
-                              ? "inprogress"
-                              : "pending"
-                          }`}
+                                ? "inprogress"
+                                : "pending"
+                            }`}
                         >
                           {proj.status}
                         </span>
@@ -265,8 +286,9 @@ const ProjectsList = () => {
                             setProjectToDelete(proj);
                             setShowDeleteModal(true);
                           }}
+                          disabled={deletingProjectId === proj.id}
                         >
-                          <FiTrash2 /> Delete
+                          {deletingProjectId === proj.id ? "Deleting..." : <><FiTrash2 /> Delete</>}
                         </button>
                       </div>
                     </div>
