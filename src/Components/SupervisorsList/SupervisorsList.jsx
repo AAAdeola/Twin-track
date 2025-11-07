@@ -1,173 +1,336 @@
-// import React, { useState } from "react";
-// import { FiTrash2, FiUser } from "react-icons/fi";
+// // ✅ FULL UPDATED FILE WITH FIXED GUID SPLITTING AND REMOVAL LOGIC
+
+// import React, { useEffect, useState } from "react";
+// import {
+//   FiTrash2,
+//   FiSlash,
+//   FiCheck,
+//   FiUser,
+//   FiSearch,
+//   FiBell,
+// } from "react-icons/fi";
+// import { toast } from "react-toastify";
 // import Sidebar from "../Sidebar/Sidebar";
 // import ConfirmDialog from "../ConfirmDialog/ConfirmDialog";
 // import "./SupervisorsList.css";
 
+// const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
+
 // const SupervisorsList = () => {
-//   const [supervisors, setSupervisors] = useState([
-//     {
-//       id: 1,
-//       name: "Alice Johnson",
-//       projects: ["Bridge Renovation", "Mall Construction"],
-//       tasks: ["Site Inspection", "Safety Audit"],
-//     },
-//     {
-//       id: 2,
-//       name: "Michael Chen",
-//       projects: ["Office Complex"],
-//       tasks: ["Team Coordination", "Budget Review"],
-//     },
-//   ]);
+//   const token = localStorage.getItem("authToken");
 
-//   const [selectedSupervisor, setSelectedSupervisor] = useState(null);
-//   const [selectedItems, setSelectedItems] = useState([]);
-//   const [showModal, setShowModal] = useState(false);
+//   const [supervisors, setSupervisors] = useState([]);
+//   const [selectedProjects, setSelectedProjects] = useState({});
 //   const [showConfirm, setShowConfirm] = useState(false);
+//   const [currentSupervisor, setCurrentSupervisor] = useState(null);
 
-//   const openModal = (supervisor) => {
-//     setSelectedSupervisor(supervisor);
-//     setSelectedItems([]);
-//     setShowModal(true);
-//   };
+//   const [searchQuery, setSearchQuery] = useState("");
+//   const [filterStatus, setFilterStatus] = useState("All");
 
-//   const closeModal = () => {
-//     setShowModal(false);
-//     setSelectedSupervisor(null);
-//   };
+//   const [loading, setLoading] = useState(false);
+//   const [fetchError, setFetchError] = useState(false);
 
-//   const toggleItem = (item) => {
-//     setSelectedItems((prev) =>
-//       prev.includes(item) ? prev.filter((x) => x !== item) : [...prev, item]
-//     );
-//   };
+//   const authHeaders = () => ({
+//     "Content-Type": "application/json",
+//     Authorization: `Bearer ${token}`,
+//   });
 
-//   const handleRemove = () => {
-//     if (!selectedSupervisor) return;
+//   // ✅ Fetch supervisors
+//   const fetchSupervisors = async () => {
+//     setLoading(true);
+//     setFetchError(false);
 
-//     const updated = supervisors.map((sup) => {
-//       if (sup.id === selectedSupervisor.id) {
-//         return {
-//           ...sup,
-//           projects: sup.projects.filter((p) => !selectedItems.includes(p)),
-//           tasks: sup.tasks.filter((t) => !selectedItems.includes(t)),
-//         };
+//     try {
+//       const res = await fetch(`${API_BASE_URL}/api/v1/supervisors/assigned`, {
+//         headers: authHeaders(),
+//       });
+
+//       const payload = await res.json();
+
+//       if (!res.ok || !payload.isSuccess) {
+//         toast.error(payload.message || "Failed to load supervisors.");
+//         setFetchError(true);
+//         return;
 //       }
-//       return sup;
-//     });
 
-//     setSupervisors(updated);
-//     setShowConfirm(false);
-//     closeModal();
+//       setSupervisors(payload.data || []);
+//     } catch (err) {
+//       toast.error("Error loading supervisors.");
+//       setFetchError(true);
+//     } finally {
+//       setLoading(false);
+//     }
 //   };
+
+//   useEffect(() => {
+//     fetchSupervisors();
+//   }, []);
+
+//   // ✅ Only project selection
+//   const toggleProjectSelect = (supervisorId, projectId) => {
+//     const key = `${supervisorId}::${projectId}`;  // ✅ SAFE KEY
+
+//     setSelectedProjects((prev) => {
+//       const updated = { ...prev };
+//       if (updated[key]) delete updated[key];
+//       else updated[key] = true;
+//       return updated;
+//     });
+//   };
+
+//   // ✅ Remove button clicked
+//   // ✅ Remove button clicked
+//   const handleRemoveClick = (supervisor) => {
+//     // Only consider selected projects for this supervisor
+//     const selectedForThisSupervisor = Object.keys(selectedProjects).filter((k) =>
+//       k.startsWith(supervisor.supervisorId)
+//     );
+
+//     if (!selectedForThisSupervisor.length) {
+//       toast.warn("Select a project to remove.");
+//       return;
+//     }
+
+//     // Save the supervisor for confirmation modal
+//     setCurrentSupervisor(supervisor);
+//     setShowConfirm(true);
+//   };
+
+//   // ✅ Confirm removal
+//   const confirmRemove = async () => {
+//     if (!currentSupervisor) return;
+
+//     const payload = { Assignments: [] };
+//     const loggedInUserId = localStorage.getItem("userId"); // or however you store current user ID
+
+//     // Only remove from selected projects
+//     for (const key of Object.keys(selectedProjects)) {
+//       const [supId, projectId] = key.split("::");
+
+//       // Find the supervisor and the project object
+//       const sup = supervisors.find(s => s.supervisorId === supId);
+//       const project = sup.projects.find(p => p.projectId === projectId);
+
+//       if (!project) continue;
+
+//       // ✅ Skip if supervisor is lead
+//       if (project.isLead) continue;
+
+//       // ✅ Skip if logged-in user is not the owner/creator of the project
+//       if (project.createdBy !== loggedInUserId) {
+//         toast.warn(`Cannot remove from "${project.projectName}" because you did not create this project.`);
+//         continue;
+//       }
+
+//       payload.Assignments.push({
+//         SupervisorId: supId,
+//         ProjectId: projectId,
+//       });
+//     }
+
+//     if (!payload.Assignments.length) {
+//       setShowConfirm(false);
+//       return;
+//     }
+
+//     try {
+//       const res = await fetch(
+//         `${API_BASE_URL}/api/v1/supervisors/projects/remove`,
+//         {
+//           method: "POST",
+//           headers: authHeaders(),
+//           body: JSON.stringify(payload),
+//         }
+//       );
+
+//       const json = await res.json();
+
+//       if (!res.ok || !json.isSuccess) {
+//         toast.error(json.message || "Failed to remove supervisor.");
+//         return;
+//       }
+
+//       toast.success("Supervisor removed from project(s).");
+
+//       setSelectedProjects({});
+//       setShowConfirm(false);
+//       fetchSupervisors();
+//     } catch (err) {
+//       toast.error("Error removing supervisor.");
+//     }
+//   };
+
+//   // ✅ Suspend / retain
+//   const toggleSuspend = async (supervisor) => {
+//     try {
+//       const loggedInUserId = localStorage.getItem("userId"); // current logged-in user
+//       const affectedProjects = supervisor.projects.filter(
+//         (p) => !p.isLead && p.createdBy === loggedInUserId
+//       );
+
+//       if (!affectedProjects.length) {
+//         toast.warn(
+//           `Cannot ${supervisor.suspended ? "retain" : "suspend"} this supervisor because you do not own any of their projects.`
+//         );
+//         return;
+//       }
+
+//       const endpoint = supervisor.suspended ? "retain" : "suspend";
+
+//       const res = await fetch(
+//         `${API_BASE_URL}/api/v1/supervisors/${supervisor.supervisorId}/${endpoint}`,
+//         { method: "PUT", headers: authHeaders() }
+//       );
+
+//       const payload = await res.json();
+
+//       if (!res.ok || !payload.isSuccess) {
+//         toast.error(payload.message || "Action failed.");
+//         return;
+//       }
+
+//       toast.success(payload.message);
+//       fetchSupervisors();
+//     } catch {
+//       toast.error("Error updating status.");
+//     }
+//   };
+
+//   const filteredSupervisors = supervisors.filter((s) => {
+//     const matchesSearch = s.fullName.toLowerCase().includes(searchQuery.toLowerCase());
+//     const matchesStatus =
+//       filterStatus === "All" ||
+//       (filterStatus === "Active" && !s.suspended) ||
+//       (filterStatus === "Suspended" && s.suspended);
+//     return matchesSearch && matchesStatus;
+//   });
 
 //   return (
 //     <div className="supervisors-page">
 //       <Sidebar />
 
 //       <main className="supervisors-main">
-//         <header className="supervisors-header">
-//           <h2>Supervisors</h2>
+//         <header className="topbar">
+//           <div className="search-bar">
+//             <FiSearch />
+//             <input
+//               type="text"
+//               placeholder="Search supervisors..."
+//               value={searchQuery}
+//               onChange={(e) => setSearchQuery(e.target.value)}
+//               disabled={loading}
+//             />
+//           </div>
+//           <div className="topbar-icons">
+//             <FiBell />
+//             <FiUser />
+//           </div>
 //         </header>
 
-//         <section className="supervisors-content">
-//           <table className="supervisors-table">
-//             <thead>
-//               <tr>
-//                 <th>Name</th>
-//                 <th>Projects</th>
-//                 <th>Tasks</th>
-//                 <th>Action</th>
-//               </tr>
-//             </thead>
-//             <tbody>
-//               {supervisors.map((supervisor) => (
-//                 <tr key={supervisor.id}>
-//                   <td className="name-cell">
-//                     <FiUser /> {supervisor.name}
-//                   </td>
-//                   <td>
-//                     {supervisor.projects.length > 0
-//                       ? supervisor.projects.join(", ")
-//                       : "—"}
-//                   </td>
-//                   <td>
-//                     {supervisor.tasks.length > 0
-//                       ? supervisor.tasks.join(", ")
-//                       : "—"}
-//                   </td>
-//                   <td>
-//                     <button
-//                       className="remove-btn"
-//                       onClick={() => openModal(supervisor)}
-//                     >
-//                       <FiTrash2 /> Remove
-//                     </button>
-//                   </td>
+//         <section className="content-area">
+//           <h2 className="page-title">Supervisors List</h2>
+
+//           {loading && <p className="muted">Loading supervisors…</p>}
+//           {fetchError && <p className="error-text">Failed to load supervisors.</p>}
+
+//           {!loading && !fetchError && (
+//             <table className="supervisors-table">
+//               <thead>
+//                 <tr>
+//                   <th>Name</th>
+//                   <th>Projects & Tasks</th>
+//                   <th>Actions</th>
 //                 </tr>
-//               ))}
-//             </tbody>
-//           </table>
+//               </thead>
+
+//               <tbody>
+//                 {filteredSupervisors.length > 0 ? (
+//                   filteredSupervisors.map((sup) => (
+//                     <tr key={sup.supervisorId}>
+//                       <td className={sup.suspended ? "suspended" : ""}>
+//                         <FiUser /> {sup.fullName}
+//                       </td>
+
+//                       <td>
+//                         {(sup.projects || []).map((project) => {
+//                           const key = `${sup.supervisorId}::${project.projectId}`;
+
+//                           return (
+//                             <div key={project.projectId} className="project-block">
+//                               <strong>
+//                                 <input
+//                                   type="checkbox"
+//                                   checked={!!selectedProjects[key]}
+//                                   onChange={() =>
+//                                     toggleProjectSelect(sup.supervisorId, project.projectId)
+//                                   }
+//                                   disabled={project.isLead}
+//                                 />{" "}
+//                                 {project.projectName} {project.isLead && "(Lead)"}
+//                               </strong>
+
+//                               <ul>
+//                                 {(project.tasks || []).map((task) => (
+//                                   <li key={task.id}>{task.name}</li>
+//                                 ))}
+//                               </ul>
+//                             </div>
+//                           );
+//                         })}
+//                       </td>
+
+//                       <td className="actions">
+//                         <button
+//                           className="remove-btn"
+//                           onClick={() => handleRemoveClick(sup)}
+//                           disabled={
+//                             !sup.projects.some((p) => {
+//                               const loggedInUserId = localStorage.getItem("userId");
+//                               return (
+//                                 !p.isLead &&
+//                                 (p.createdBy === loggedInUserId || sup.supervisorId === loggedInUserId)
+//                               );
+//                             })
+//                           }
+//                         >
+//                           <FiTrash2 /> Remove
+//                         </button>
+
+//                         <button
+//                           className={`suspend-btn ${sup.suspended ? "retain" : "suspend"}`}
+//                           onClick={() => toggleSuspend(sup)}
+//                           disabled={
+//                             !sup.projects.some((p) => {
+//                               const loggedInUserId = localStorage.getItem("userId");
+//                               return (
+//                                 !p.isLead &&
+//                                 (p.createdBy === loggedInUserId || sup.supervisorId === loggedInUserId)
+//                               );
+//                             })
+//                           }
+//                         >
+//                           {sup.suspended ? <><FiCheck /> Retain</> : <><FiSlash /> Suspend</>}
+//                         </button>
+//                       </td>
+//                     </tr>
+//                   ))
+//                 ) : (
+//                   <tr>
+//                     <td colSpan="3" className="no-results">
+//                       No supervisors found.
+//                     </td>
+//                   </tr>
+//                 )}
+//               </tbody>
+//             </table>
+//           )}
 //         </section>
 
-//         {/* Remove Modal */}
-//         {showModal && selectedSupervisor && (
-//           <div className="tt-modal-overlay">
-//             <div className="tt-modal-card">
-//               <h2>Remove from Project/Task</h2>
-//               <p>
-//                 Select the project(s) or task(s) to remove{" "}
-//                 <strong>{selectedSupervisor.name}</strong> from:
-//               </p>
-
-//               <div className="checkbox-group">
-//                 <h4>Projects</h4>
-//                 {selectedSupervisor.projects.map((p, i) => (
-//                   <label key={i} className="checkbox-item">
-//                     <input
-//                       type="checkbox"
-//                       checked={selectedItems.includes(p)}
-//                       onChange={() => toggleItem(p)}
-//                     />
-//                     {p}
-//                   </label>
-//                 ))}
-
-//                 <h4>Tasks</h4>
-//                 {selectedSupervisor.tasks.map((t, i) => (
-//                   <label key={i} className="checkbox-item">
-//                     <input
-//                       type="checkbox"
-//                       checked={selectedItems.includes(t)}
-//                       onChange={() => toggleItem(t)}
-//                     />
-//                     {t}
-//                   </label>
-//                 ))}
-//               </div>
-
-//               <div className="modal-actions">
-//                 <button className="cancel-btn" onClick={closeModal}>
-//                   Cancel
-//                 </button>
-//                 <button
-//                   className="confirm-btn"
-//                   disabled={selectedItems.length === 0}
-//                   onClick={() => setShowConfirm(true)}
-//                 >
-//                   Confirm
-//                 </button>
-//               </div>
-//             </div>
-//           </div>
-//         )}
-
-//         {/* Confirm Dialog */}
-//         {showConfirm && selectedSupervisor && (
+//         {showConfirm && (
 //           <ConfirmDialog
 //             title="Confirm Removal"
-//             message={`Are you sure you want to remove ${selectedSupervisor.name} from the selected projects/tasks?`}
-//             onConfirm={handleRemove}
+//             message={`Remove selected projects for ${currentSupervisor.fullName}?`}
+//             onConfirm={confirmRemove}
 //             onCancel={() => setShowConfirm(false)}
 //           />
 //         )}
@@ -177,85 +340,176 @@
 // };
 
 // export default SupervisorsList;
-import React, { useState } from "react";
-import { FiTrash2, FiUser, FiSearch, FiBell } from "react-icons/fi";
+import React, { useEffect, useState } from "react";
+import {
+  FiTrash2,
+  FiSlash,
+  FiCheck,
+  FiUser,
+  FiSearch,
+  FiBell,
+} from "react-icons/fi";
+import { toast } from "react-toastify";
 import Sidebar from "../Sidebar/Sidebar";
 import ConfirmDialog from "../ConfirmDialog/ConfirmDialog";
 import "./SupervisorsList.css";
 
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
+
 const SupervisorsList = () => {
-  const [supervisors, setSupervisors] = useState([
-    {
-      id: 1,
-      name: "Alice Johnson",
-      projects: ["Bridge Renovation", "Mall Construction"],
-      tasks: ["Site Inspection", "Safety Audit"],
-    },
-    {
-      id: 2,
-      name: "Michael Chen",
-      projects: ["Office Complex"],
-      tasks: ["Team Coordination", "Budget Review"],
-    },
-    {
-      id: 3,
-      name: "Fatima Yusuf",
-      projects: ["Eco Housing Estate"],
-      tasks: ["Quality Control", "Worker Coordination"],
-    },
-  ]);
+  const token = localStorage.getItem("authToken");
+  const loggedInUserId = localStorage.getItem("userId"); // current logged-in user
 
-  const [selectedSupervisor, setSelectedSupervisor] = useState(null);
-  const [selectedItems, setSelectedItems] = useState([]);
-  const [showModal, setShowModal] = useState(false);
+  const [supervisors, setSupervisors] = useState([]);
+  const [selectedProjects, setSelectedProjects] = useState({});
   const [showConfirm, setShowConfirm] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [currentSupervisor, setCurrentSupervisor] = useState(null);
+  const [allowedProjects, setAllowedProjects] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState("All");
+  const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState(false);
 
-  // Modal Handlers
-  const openModal = (supervisor) => {
-    setSelectedSupervisor(supervisor);
-    setSelectedItems([]);
-    setShowModal(true);
-  };
+  const authHeaders = () => ({
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  });
 
-  const closeModal = () => {
-    setShowModal(false);
-    setSelectedSupervisor(null);
-  };
-
-  const toggleItem = (item) => {
-    setSelectedItems((prev) =>
-      prev.includes(item) ? prev.filter((x) => x !== item) : [...prev, item]
-    );
-  };
-
-  const handleRemove = () => {
-    if (!selectedSupervisor) return;
-
-    const updated = supervisors.map((sup) => {
-      if (sup.id === selectedSupervisor.id) {
-        return {
-          ...sup,
-          projects: sup.projects.filter((p) => !selectedItems.includes(p)),
-          tasks: sup.tasks.filter((t) => !selectedItems.includes(t)),
-        };
+  // ✅ Fetch supervisors for projects related to the logged-in user
+  const fetchSupervisors = async () => {
+    setLoading(true);
+    setFetchError(false);
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/v1/supervisors/assigned?userId=${loggedInUserId}`,
+        {
+          headers: authHeaders(),
+        }
+      );
+      const payload = await res.json();
+      if (!res.ok || !payload.isSuccess) {
+        toast.error(payload.message || "Failed to load supervisors.");
+        setFetchError(true);
+        return;
       }
-      return sup;
-    });
-
-    setSupervisors(updated);
-    setShowConfirm(false);
-    closeModal();
+      setSupervisors(payload.data || []);
+    } catch (err) {
+      toast.error("Error loading supervisors.");
+      setFetchError(true);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // 🔍 Filter logic for search bar
-  const filteredSupervisors = supervisors.filter((sup) => {
-    const term = searchTerm.toLowerCase();
-    return (
-      sup.name.toLowerCase().includes(term) ||
-      sup.projects.some((p) => p.toLowerCase().includes(term)) ||
-      sup.tasks.some((t) => t.toLowerCase().includes(term))
+  useEffect(() => {
+    fetchSupervisors();
+  }, []);
+
+  // Toggle project checkbox
+  const toggleProjectSelect = (supervisorId, projectId) => {
+    const key = `${supervisorId}::${projectId}`;
+    setSelectedProjects((prev) => {
+      const updated = { ...prev };
+      if (updated[key]) delete updated[key];
+      else updated[key] = true;
+      return updated;
+    });
+  };
+
+  // Remove button click
+  const handleRemoveClick = (supervisor) => {
+    const projectsCanRemove = supervisor.projects.filter(
+      (p) =>
+        !p.isLead &&
+        (String(p.createdBy) === loggedInUserId || String(supervisor.supervisorId) === loggedInUserId)
     );
+
+    if (!projectsCanRemove.length) {
+      toast.warn("No projects can be removed by you.");
+      return;
+    }
+
+    setCurrentSupervisor(supervisor);
+    setAllowedProjects(projectsCanRemove);
+    setShowConfirm(true);
+  };
+
+  // Confirm removal
+  const confirmRemove = async () => {
+    if (!currentSupervisor || !allowedProjects.length) {
+      setShowConfirm(false);
+      return;
+    }
+
+    const payload = { Assignments: [] };
+    for (const project of allowedProjects) {
+      payload.Assignments.push({
+        SupervisorId: currentSupervisor.supervisorId,
+        ProjectId: project.projectId,
+      });
+    }
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/supervisors/projects/remove`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.isSuccess) {
+        toast.error(json.message || "Failed to remove supervisor.");
+        return;
+      }
+
+      toast.success("Supervisor removed from project(s).");
+      setSelectedProjects({});
+      setShowConfirm(false);
+      fetchSupervisors();
+    } catch (err) {
+      toast.error("Error removing supervisor.");
+    }
+  };
+
+  // Suspend / retain
+  const toggleSuspend = async (supervisor) => {
+    const affectedProjects = supervisor.projects.filter(
+      (p) => !p.isLead && String(p.createdBy) === loggedInUserId
+    );
+
+    if (!affectedProjects.length) {
+      toast.warn(
+        `Cannot ${supervisor.suspended ? "retain" : "suspend"} this supervisor because you do not own any of their projects.`
+      );
+      return;
+    }
+
+    const endpoint = supervisor.suspended ? "retain" : "suspend";
+
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/v1/supervisors/${supervisor.supervisorId}/${endpoint}`,
+        { method: "PUT", headers: authHeaders() }
+      );
+      const json = await res.json();
+      if (!res.ok || !json.isSuccess) {
+        toast.error(json.message || "Action failed.");
+        return;
+      }
+
+      toast.success(json.message);
+      fetchSupervisors();
+    } catch {
+      toast.error("Error updating status.");
+    }
+  };
+
+  const filteredSupervisors = supervisors.filter((s) => {
+    const matchesSearch = s.fullName.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus =
+      filterStatus === "All" ||
+      (filterStatus === "Active" && !s.suspended) ||
+      (filterStatus === "Suspended" && s.suspended);
+    return matchesSearch && matchesStatus;
   });
 
   return (
@@ -263,15 +517,15 @@ const SupervisorsList = () => {
       <Sidebar />
 
       <main className="supervisors-main">
-        {/* Topbar */}
         <header className="topbar">
           <div className="search-bar">
             <FiSearch />
             <input
               type="text"
               placeholder="Search supervisors..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              disabled={loading}
             />
           </div>
           <div className="topbar-icons">
@@ -280,117 +534,101 @@ const SupervisorsList = () => {
           </div>
         </header>
 
-        {/* Main Content */}
         <section className="content-area">
           <h2 className="page-title">Supervisors List</h2>
 
-          <div className="table-container">
+          {loading && <p className="muted">Loading supervisors…</p>}
+          {fetchError && <p className="error-text">Failed to load supervisors.</p>}
+
+          {!loading && !fetchError && (
             <table className="supervisors-table">
               <thead>
                 <tr>
                   <th>Name</th>
-                  <th>Projects</th>
-                  <th>Tasks</th>
-                  <th>Action</th>
+                  <th>Projects & Tasks</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
+
               <tbody>
                 {filteredSupervisors.length > 0 ? (
-                  filteredSupervisors.map((supervisor) => (
-                    <tr key={supervisor.id}>
-                      <td className="name-cell">
-                        <FiUser /> {supervisor.name}
+                  filteredSupervisors.map((sup) => (
+                    <tr key={sup.supervisorId}>
+                      <td className={sup.suspended ? "suspended" : ""}>
+                        <FiUser /> {sup.fullName}
                       </td>
+
                       <td>
-                        {supervisor.projects.length > 0
-                          ? supervisor.projects.join(", ")
-                          : "—"}
+                        {(sup.projects || []).map((project) => {
+                          const key = `${sup.supervisorId}::${project.projectId}`;
+                          const canRemove =
+                            !project.isLead &&
+                            (String(project.createdBy) === loggedInUserId ||
+                              String(sup.supervisorId) === loggedInUserId);
+
+                          return (
+                            <div key={project.projectId} className="project-block">
+                              <strong>
+                                <input
+                                  type="checkbox"
+                                  checked={!!selectedProjects[key]}
+                                  onChange={() =>
+                                    toggleProjectSelect(sup.supervisorId, project.projectId)
+                                  }
+                                  disabled={!canRemove}
+                                />{" "}
+                                {project.projectName} {project.isLead && "(Lead)"}
+                              </strong>
+
+                              <ul>
+                                {(project.tasks || []).map((task) => (
+                                  <li key={task.id}>{task.name}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          );
+                        })}
                       </td>
-                      <td>
-                        {supervisor.tasks.length > 0
-                          ? supervisor.tasks.join(", ")
-                          : "—"}
-                      </td>
-                      <td>
-                        <button
-                          className="remove-btn"
-                          onClick={() => openModal(supervisor)}
-                        >
+
+                      <td className="actions">
+                        <button className="remove-btn" onClick={() => handleRemoveClick(sup)}>
                           <FiTrash2 /> Remove
+                        </button>
+
+                        <button
+                          className={`suspend-btn ${sup.suspended ? "retain" : "suspend"}`}
+                          onClick={() => toggleSuspend(sup)}
+                        >
+                          {sup.suspended ? (
+                            <>
+                              <FiCheck /> Retain
+                            </>
+                          ) : (
+                            <>
+                              <FiSlash /> Suspend
+                            </>
+                          )}
                         </button>
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="4" className="no-results">
-                      No supervisors match your search.
+                    <td colSpan="3" className="no-results">
+                      No supervisors found.
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
-          </div>
+          )}
         </section>
 
-        {/* Remove Modal */}
-        {showModal && selectedSupervisor && (
-          <div className="tt-modal-overlay">
-            <div className="tt-modal-card">
-              <h2>Remove from Project/Task</h2>
-              <p>
-                Select the project(s) or task(s) to remove{" "}
-                <strong>{selectedSupervisor.name}</strong> from:
-              </p>
-
-              <div className="checkbox-group">
-                <h4>Projects</h4>
-                {selectedSupervisor.projects.map((p, i) => (
-                  <label key={i} className="checkbox-item">
-                    <input
-                      type="checkbox"
-                      checked={selectedItems.includes(p)}
-                      onChange={() => toggleItem(p)}
-                    />
-                    {p}
-                  </label>
-                ))}
-
-                <h4>Tasks</h4>
-                {selectedSupervisor.tasks.map((t, i) => (
-                  <label key={i} className="checkbox-item">
-                    <input
-                      type="checkbox"
-                      checked={selectedItems.includes(t)}
-                      onChange={() => toggleItem(t)}
-                    />
-                    {t}
-                  </label>
-                ))}
-              </div>
-
-              <div className="modal-actions">
-                <button className="cancel-btn" onClick={closeModal}>
-                  Cancel
-                </button>
-                <button
-                  className="confirm-btn"
-                  disabled={selectedItems.length === 0}
-                  onClick={() => setShowConfirm(true)}
-                >
-                  Confirm
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Confirm Dialog */}
-        {showConfirm && selectedSupervisor && (
+        {showConfirm && (
           <ConfirmDialog
             title="Confirm Removal"
-            message={`Are you sure you want to remove ${selectedSupervisor.name} from the selected projects/tasks?`}
-            onConfirm={handleRemove}
+            message={`Remove selected projects for ${currentSupervisor.fullName}?`}
+            onConfirm={confirmRemove}
             onCancel={() => setShowConfirm(false)}
           />
         )}

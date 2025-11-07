@@ -28,19 +28,43 @@ const Login = () => {
           password: formData.password,
         }),
       });
-      console.log("API Base URL:", API_BASE_URL);
 
       const data = await response.json();
+      console.log("Login Response:", data);
 
       if (!response.ok || !data.isSuccess) {
         setError(data.message || "Invalid email/phone or password");
-      } else {
-        if (data.data?.token) {
-          localStorage.setItem("authToken", data.data.token);
-        }
-
-        navigate("/MainDashboard");
+        return;
       }
+
+      const token = data.data.accessToken;
+
+      if (!token) {
+        console.error(" No accessToken returned");
+        return;
+      }
+
+      localStorage.setItem("authToken", token);
+
+      const payload = JSON.parse(atob(token.split(".")[1]));
+
+      const userId = payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"];
+      const role = payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"];
+
+      localStorage.setItem("userId", userId);
+      localStorage.setItem("role", role);
+
+      console.log(" Logged in UserID:", userId);
+      console.log(" Logged in Role:", role);
+
+      if (role === "Supervisor") {
+        navigate(`/MainDashboard/${userId}`);
+      } else if (role === "Worker") {
+      navigate(`/WorkerDashboard/${userId}`);
+      } else {
+        setError("Unknown role assigned.");
+      }
+
     } catch (err) {
       console.error("Login error:", err);
       setError("Something went wrong. Please try again.");
