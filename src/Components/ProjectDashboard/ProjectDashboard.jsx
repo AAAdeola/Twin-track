@@ -152,26 +152,33 @@ const ProjectDashboard = () => {
     }
   };
 
-  /* FETCH PROJECT MATERIALS */
   const fetchProjectMaterials = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/v1/projects/${projectId}/materials`, { headers: authHeaders() });
       const payload = await res.json();
-      console.log("📦 Project Materials API raw response:", payload);
+
+      console.log("📦 Project Materials API raw response:", payload); // 🔹 log the full response
+
       const list = payload.data ?? [];
+      console.log("📦 Normalized list from API:", list); // 🔹 log the extracted list
+
       const normalized = (Array.isArray(list) ? list : []).map((m) => ({
-        id: m.materialId ?? m.id,
-        name: m.name,
+        id: m.materialId ?? m.id ?? crypto.randomUUID(),
+        name: m.name ?? "Unnamed Material",  // 🔹 fallback for missing name
         quantity: m.quantity ?? 0,
         availableQuantity: m.availableQuantity ?? m.quantity ?? 0,
-        unit: m.unit ?? "", // optional
+        unit: m.unit ?? "",
       }));
+
+      console.log("📦 Final normalized materials:", normalized);
+
       setProject((prev) => ({ ...prev, materials: normalized }));
     } catch (err) {
       console.error("❌ Failed to load project materials:", err);
       toast.error("Failed to load project materials.");
     }
   };
+
 
   /* FETCH ASSIGNMENTS */
   const fetchAssignments = async () => {
