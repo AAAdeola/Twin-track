@@ -1,68 +1,47 @@
-import React, { useState } from "react";
-import "./RemainingMaterialsModal.css";
+// src/components/RemainingMaterialsModal/RemainingMaterialsModal.jsx
+import React from "react";
+import "./RemainingMaterialsModal.css"; // We'll style the modal here
 
-const RemainingMaterialsModal = ({ task, project, onUpdate, onClose }) => {
-  const [selected, setSelected] = useState("");
-  const [qtyUsed, setQtyUsed] = useState("");
+export default function RemainingMaterialsModal({ open, onClose, task, materials }) {
+    if (!open) return null;
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const mat = task.materials.find((m) => m.name === selected);
-    if (!mat) return;
+    return (
+        <div className="rm-modal-overlay">
+            <div className="rm-modal-container">
+                <div className="rm-modal-header">
+                    <h2>Remaining Materials for {task?.name}</h2>
+                    <button className="rm-close-btn" onClick={onClose}>×</button>
+                </div>
 
-    const usedQty = parseInt(qtyUsed);
-    if (usedQty <= 0 || usedQty > mat.quantity) return;
+                <div className="rm-modal-body">
+                    {materials && materials.length > 0 ? (
+                        <table className="rm-modal-table">
+                            <thead>
+                                <tr>
+                                    <th>Material</th>
+                                    <th>Quantity Assigned</th>
+                                    <th>Quantity Remaining</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {materials.map((m, idx) => (
+                                    <tr key={idx}>
+                                        <td>{m.name}</td>
+                                        <td>{m.quantityAssigned}</td>
+                                        <td>{m.remaining}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    ) : (
+                        <p className="rm-muted">No remaining materials for this task.</p>
+                    )}
+                </div>
 
-    const updated = {
-      name: mat.name,
-      quantityUsed: usedQty,
-      remaining: mat.quantity - usedQty,
-    };
-
-    onUpdate(updated);
-    onClose();
-  };
-
-  return (
-    <div className="tt-modal-overlay" onMouseDown={onClose}>
-      <div className="tt-modal-card" onMouseDown={(e) => e.stopPropagation()}>
-        <button className="tt-close" onClick={onClose}>×</button>
-        <h3>Record Remaining Materials</h3>
-        <p className="muted">Enter how much material was used.</p>
-
-        <form onSubmit={handleSubmit}>
-          <select
-            value={selected}
-            onChange={(e) => setSelected(e.target.value)}
-          >
-            <option value="">Select material</option>
-            {task.materials.map((m, i) => (
-              <option key={i} value={m.name}>
-                {m.name} (Available: {m.quantity})
-              </option>
-            ))}
-          </select>
-
-          <input
-            type="number"
-            min="1"
-            placeholder="Quantity used"
-            value={qtyUsed}
-            onChange={(e) => setQtyUsed(e.target.value)}
-          />
-
-          <div className="tt-actions">
-            <button type="button" className="tt-cancel" onClick={onClose}>
-              Cancel
-            </button>
-            <button type="submit" className="tt-create">
-              Update
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-export default RemainingMaterialsModal;
+                <div className="rm-modal-footer">
+                    <button className="rm-small-btn" onClick={onClose}>Close</button>
+                </div>
+            </div>
+        </div>
+    );
+}

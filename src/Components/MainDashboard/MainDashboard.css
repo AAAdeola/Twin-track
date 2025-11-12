@@ -124,3 +124,34 @@
   font-weight: 500;
   color: #374151;
 }
+
+.loading-card {
+  background: #f3f4f6;
+  padding: 20px;
+  border-radius: 16px;
+  text-align: center;
+  box-shadow: var(--card-shadow);
+}
+
+.loading-bar {
+  width: 60%;
+  height: 18px;
+  margin: 0 auto;
+  border-radius: 8px;
+  background: #e5e7eb;
+  animation: pulse 1.4s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.3; }
+  50% { opacity: 1; }
+  100% { opacity: 0.3; }
+}
+
+.analytics-loading,
+.analytics-error {
+  text-align: center;
+  padding: 30px 0;
+  font-size: 16px;
+  color: #555;
+}
