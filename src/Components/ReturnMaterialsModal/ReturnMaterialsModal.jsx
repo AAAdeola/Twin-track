@@ -7,7 +7,6 @@ export default function ReturnMaterialsModal({ open, onClose, task, materials })
   const [qty, setQty] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // ✅ Reset when modal opens
   useEffect(() => {
     if (open) {
       setQty("");
@@ -101,8 +100,8 @@ export default function ReturnMaterialsModal({ open, onClose, task, materials })
         >
           {materials?.map((m) => (
             <option key={m.id} value={m.id}>
-              {m.name} — {m.remaining} remaining
-            </option>
+  {m.name} — {m.quantityAssigned} assigned
+</option>
           ))}
         </select>
 
