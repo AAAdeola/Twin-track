@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import Sidebar from "../Sidebar/Sidebar";
+import WorkLogsTab from "./Tabs/WorkLogsTab";
 
 import {
   FiSearch,
@@ -71,6 +72,8 @@ const ProjectDashboard = () => {
   /* Increase material modal state */
   const [showIncreaseModal, setShowIncreaseModal] = useState(false);
   const [materialToIncrease, setMaterialToIncrease] = useState(null);
+  const [workerLogs, setWorkerLogs] = useState([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
 
   /* Worker / supervisor lists */
   const [allWorkers, setAllWorkers] = useState([]);
@@ -83,8 +86,13 @@ const ProjectDashboard = () => {
     fetchTasks();
     fetchAssignments();
     fetchProjectMaterials();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
+
+  useEffect(() => {
+    if (activeTab === "Work Logs") {
+      fetchWorkerLogs();
+    }
+  }, [activeTab]);
 
   const authHeaders = () =>
     token ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } : { "Content-Type": "application/json" };
@@ -115,6 +123,101 @@ const ProjectDashboard = () => {
       setLoadingProject(false);
     }
   };
+
+  // const fetchWorkerLogs = async () => {
+  //   setLoadingLogs(true);
+  //   console.log("Fetching worker logs...");
+
+  //   try {
+  //     const res = await fetch(
+  //       `${API_BASE_URL}/api/WorkerLogs/logs`, // ✅ updated route
+  //       { headers: authHeaders() }
+  //     );
+
+  //     console.log("Raw response:", res);
+
+  //     if (!res.ok) {
+  //       const errText = await res.text();
+  //       console.warn("Server returned error:", errText);
+  //       toast.warn("Failed to fetch worker logs.");
+  //       return;
+  //     }
+
+  //     const payload = await res.json();
+  //     console.log("Logs payload:", payload);
+
+  //     const logsList = payload.data ?? [];
+
+  //     if (!Array.isArray(logsList)) {
+  //       console.error("Logs data is NOT an array:", logsList);
+  //       setWorkerLogs([]);
+  //       return;
+  //     }
+
+  //     console.log("Final logs list:", logsList);
+  //     setWorkerLogs(logsList);
+
+  //   } catch (err) {
+  //     console.error("Error loading worker logs:", err);
+  //     toast.error("Error loading worker logs.");
+  //   } finally {
+  //     setLoadingLogs(false);
+  //     console.log("Finished loading logs.");
+  //   }
+  // };
+
+  const fetchWorkerLogs = async () => {
+    setLoadingLogs(true);
+    console.log("Fetching worker logs...");
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/WorkerLogs/logs`, {
+        headers: authHeaders(),
+      });
+
+      const rawText = await res.text();
+      console.log("Raw response text:", rawText);
+
+      if (!res.ok) {
+        console.warn("Server returned error:", rawText);
+        toast.warn("Failed to fetch worker logs.");
+        return;
+      }
+
+      const payload = JSON.parse(rawText);
+      console.log("Parsed JSON payload:", payload);
+
+      const logsList = (payload.data ?? []).map((log) => {
+        // Normalize images URLs
+        const normalizeUrl = (url) =>
+          url?.startsWith("http") ? url : `${API_BASE_URL}/${url}`.replace(/\\/g, "/");
+
+        const images = Array.isArray(log.photosUrls)
+          ? log.photosUrls.map(normalizeUrl)
+          : log.photosUrls
+            ? [normalizeUrl(log.photosUrls)]
+            : [];
+
+        return {
+          ...log,
+          photosUrls: images, // ensure field matches backend
+          taskName: log.taskName ?? log.task?.name ?? log.taskId,
+          projectName: log.projectName ?? log.project?.name ?? log.projectId,
+        };
+      });
+
+      logsList.forEach((log, idx) => console.log(`Log[${idx}]:`, log));
+
+      setWorkerLogs(logsList);
+    } catch (err) {
+      console.error("Error loading worker logs:", err);
+      toast.error("Error loading worker logs.");
+    } finally {
+      setLoadingLogs(false);
+      console.log("Finished fetching logs.");
+    }
+  };
+
 
   /* FETCH TASKS */
   const fetchTasks = async () => {
@@ -580,8 +683,9 @@ const ProjectDashboard = () => {
               </div>
             )}
 
-            {activeTab === "Work Logs" && <div className="muted">Work logs coming soon.</div>}
-
+            {activeTab === "Work Logs" && (
+              <WorkLogsTab logs={workerLogs} loading={loadingLogs} />
+            )}
             {/* MATERIALS TAB - Card Grid Style */}
             {activeTab === "Materials" && (
               <div className="tt-materials-wrap">
@@ -694,7 +798,6 @@ const ProjectDashboard = () => {
 
       {taskMaterialsView && <TaskMaterialsModal task={taskMaterialsView} project={project} onClose={() => setTaskMaterialsView(null)} />}
 
-      {/* Increase material modal (your separate component file) */}
       {showIncreaseModal && materialToIncrease && (
         <IncreaseMaterialModal material={materialToIncrease} onClose={closeIncreaseModal} onIncrease={confirmIncrease} />
       )}

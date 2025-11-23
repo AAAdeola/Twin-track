@@ -5,6 +5,7 @@ import { FiUsers, FiBriefcase, FiCheckCircle } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import "./WorkerDashboard.css";
+import ProjectSubmissionModal from "../ProjectSubmissionModal/ProjectSubmissionModal";
 
 export default function WorkerDashboard() {
   const navigate = useNavigate();
@@ -18,6 +19,8 @@ export default function WorkerDashboard() {
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [loadingSupervisors, setLoadingSupervisors] = useState(true);
+  const [openProjectSubmissionModal, setOpenProjectSubmissionModal] = useState(false);
+  const [currentProjectToSubmit, setCurrentProjectToSubmit] = useState(null);
 
   const [errorProjects, setErrorProjects] = useState(false);
   const [errorTasks, setErrorTasks] = useState(false);
@@ -25,7 +28,14 @@ export default function WorkerDashboard() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [submittingProject, setSubmittingProject] = useState(false);
   const currentWorkerId = localStorage.getItem("userId");
+  const loadAll = () => {
+    fetchWorkerProjects();      // reload projects
+    // Optionally, reload tasks and supervisors as well if needed
+    // fetchWorkerTasks(projects);
+    // fetchWorkerSupervisors(projects);
+  };
 
   // Fetch worker projects
   useEffect(() => {
@@ -114,6 +124,43 @@ export default function WorkerDashboard() {
       toast.error("Failed to load supervisors.");
     } finally {
       setLoadingSupervisors(false);
+    }
+  };
+
+  const handleOpenProjectSubmission = (project) => {
+    setCurrentProjectToSubmit(project);
+    setOpenProjectSubmissionModal(true);
+  };
+
+  const handleSubmitProject = async (projectId, dto) => {
+    setSubmittingProject(true);
+    try {
+      const token = localStorage.getItem("authToken");
+
+      const res = await fetch(`${API_BASE_URL}/api/v1/worker/projects/${projectId}/submit`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(dto), // <-- send DTO directly, not { dto }
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data.isSuccess) {
+        toast.error(data?.message || "Failed to submit project");
+        return;
+      }
+
+      toast.success("Project submitted successfully!");
+      setOpenProjectSubmissionModal(false);
+      loadAll(); // reload projects/tasks
+    } catch (err) {
+      console.error("Network error submitting project", err);
+      toast.error("Network error submitting project");
+    } finally {
+      setSubmittingProject(false);
     }
   };
 
@@ -237,9 +284,23 @@ export default function WorkerDashboard() {
               >
                 View Tasks
               </button>
+              <button
+                className="btn btn-primary"
+                onClick={() => handleOpenProjectSubmission(project)}
+              >
+                Submit Project
+              </button>
             </div>
           ))}
         </div>
+
+        <ProjectSubmissionModal
+          isOpen={openProjectSubmissionModal}
+          onClose={() => setOpenProjectSubmissionModal(false)}
+          onSubmit={handleSubmitProject}
+          projectId={currentProjectToSubmit?.id}
+          workerId={currentWorkerId}
+        />
 
         {/* ===== QUICK ACTIONS ROW ===== */}
         <div className="quick-actions-row">
