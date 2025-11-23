@@ -56,7 +56,7 @@ function App() {
           <Route path="/supervisors/:userId" element={<SupervisorsList />} />
           <Route path="/register-supervisor" element={<RegisterSupervisor />} />
           <Route path="/register-worker" element={<RegisterWorker />} />
-          <Route path="/worker/:workerId/tasks" element={<WorkerTasks />} />
+          <Route path="/worker/:workerId/project/:projectId/tasks" element={<WorkerTasks />} />
           <Route path="/Login" element={<Login />} />
           <Route path="/Landing" element={<Landing />} />
         </Routes>

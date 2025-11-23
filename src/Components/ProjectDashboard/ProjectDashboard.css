@@ -203,7 +203,7 @@
   padding: 5px 8px;
   border-radius: 6px;
   background: #4c6fff;
-  color: white;
+  color: rgb(33, 31, 31);
   border: none;
   cursor: pointer;
 }
@@ -537,4 +537,3 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
-

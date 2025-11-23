@@ -53,3 +53,19 @@
 .tt-menu-item svg {
   font-size: 18px;
 }
+
+.tt-logout {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    color: #f87171;
+    font-weight: bold;
+}
+
+.tt-logout:hover {
+    color: #fca5a5;
+}

@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import Sidebar from "../Sidebar/Sidebar";
-
+import WorkLogsTab from "./Tabs/WorkLogsTab";
+import TasksTab from "./Tabs/TasksTab";
+import MaterialsTab from "./Tabs/MaterialsTab";
+import AttendanceTab from "./Tabs/AttendanceTab";
 import {
   FiSearch,
   FiBell,
@@ -10,10 +13,8 @@ import {
   FiChevronLeft,
   FiPlusCircle,
 } from "react-icons/fi";
-
 import { toast } from "react-toastify";
 import "./ProjectDashboard.css";
-
 import ModalShell from "../Modals/ModalShell";
 import AddTaskModal from "../Modals/Add-New-Task";
 import AssignWorkerToProjectModal from "../Modals/AssignWorkerToProjectModal";
@@ -22,8 +23,6 @@ import AssignSupervisorModal from "../Modals/AssignSupervisorModal";
 import MaterialsModal from "../Modals/MaterialsModal";
 import ProjectMaterialsModal from "../Modals/ProjectMaterialsModal";
 import TaskMaterialsModal from "../TaskMaterialsModal/TaskMaterialsModal";
-
-// Your provided modal (separate file)
 import IncreaseMaterialModal from "../IncreaseMaterialModal/IncreaseMaterialModal";
 
 const tabs = ["Tasks", "Work Logs", "Materials", "Attendance"];
@@ -51,13 +50,10 @@ const ProjectDashboard = () => {
 
   const [tasks, setTasks] = useState([]);
   const [assignments, setAssignments] = useState({ supervisors: [], workers: [] });
-
   const [activeTab, setActiveTab] = useState("Tasks");
-
   const [loadingProject, setLoadingProject] = useState(false);
   const [loadingTasks, setLoadingTasks] = useState(false);
   const [loadingAssignments, setLoadingAssignments] = useState(false);
-
   /* Modals state */
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [showWorkerAssign, setShowWorkerAssign] = useState(false);
@@ -67,11 +63,11 @@ const ProjectDashboard = () => {
   const [selectedTaskMaterials, setSelectedTaskMaterials] = useState(null);
   const [showProjectMaterialsModal, setShowProjectMaterialsModal] = useState(false);
   const [taskMaterialsView, setTaskMaterialsView] = useState(null);
-
   /* Increase material modal state */
   const [showIncreaseModal, setShowIncreaseModal] = useState(false);
   const [materialToIncrease, setMaterialToIncrease] = useState(null);
-
+  const [workerLogs, setWorkerLogs] = useState([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
   /* Worker / supervisor lists */
   const [allWorkers, setAllWorkers] = useState([]);
   const [projectWorkers, setProjectWorkers] = useState([]);
@@ -83,8 +79,13 @@ const ProjectDashboard = () => {
     fetchTasks();
     fetchAssignments();
     fetchProjectMaterials();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
+
+  useEffect(() => {
+    if (activeTab === "Work Logs") {
+      fetchWorkerLogs();
+    }
+  }, [activeTab]);
 
   const authHeaders = () =>
     token ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } : { "Content-Type": "application/json" };
@@ -113,6 +114,57 @@ const ProjectDashboard = () => {
       toast.error("Error loading project.");
     } finally {
       setLoadingProject(false);
+    }
+  };
+  const fetchWorkerLogs = async () => {
+    setLoadingLogs(true);
+    console.log("Fetching worker logs...");
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/WorkerLogs/logs`, {
+        headers: authHeaders(),
+      });
+
+      const rawText = await res.text();
+      console.log("Raw response text:", rawText);
+
+      if (!res.ok) {
+        console.warn("Server returned error:", rawText);
+        toast.warn("Failed to fetch worker logs.");
+        return;
+      }
+
+      const payload = JSON.parse(rawText);
+      console.log("Parsed JSON payload:", payload);
+
+      const logsList = (payload.data ?? []).map((log) => {
+        // Normalize images URLs
+        const normalizeUrl = (url) =>
+          url?.startsWith("http") ? url : `${API_BASE_URL}/${url}`.replace(/\\/g, "/");
+
+        const images = Array.isArray(log.photosUrls)
+          ? log.photosUrls.map(normalizeUrl)
+          : log.photosUrls
+            ? [normalizeUrl(log.photosUrls)]
+            : [];
+
+        return {
+          ...log,
+          photosUrls: images, // ensure field matches backend
+          taskName: log.taskName ?? log.task?.name ?? log.taskId,
+          projectName: log.projectName ?? log.project?.name ?? log.projectId,
+        };
+      });
+
+      logsList.forEach((log, idx) => console.log(`Log[${idx}]:`, log));
+
+      setWorkerLogs(logsList);
+    } catch (err) {
+      console.error("Error loading worker logs:", err);
+      toast.error("Error loading worker logs.");
+    } finally {
+      setLoadingLogs(false);
+      console.log("Finished fetching logs.");
     }
   };
 
@@ -178,7 +230,6 @@ const ProjectDashboard = () => {
       toast.error("Failed to load project materials.");
     }
   };
-
 
   /* FETCH ASSIGNMENTS */
   const fetchAssignments = async () => {
@@ -500,147 +551,33 @@ const ProjectDashboard = () => {
           </div>
 
           <div className="tt-card-body">
-            {/* TASKS TABLE */}
             {activeTab === "Tasks" && (
-              <div className="tt-tasks-table-wrap">
-                {loadingTasks ? (
-                  <div className="muted">Loading tasks...</div>
-                ) : (
-                  <table className="tt-tasks-table">
-                    <thead>
-                      <tr>
-                        <th>Task Name</th>
-                        <th>Assigned</th>
-                        <th>Workers</th>
-                        <th>Materials</th>
-                        <th>Due Date</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-
-                    <tbody>
-                      {tasks.length === 0 ? (
-                        <tr>
-                          <td colSpan={7} className="muted">
-                            No tasks found.
-                          </td>
-                        </tr>
-                      ) : (
-                        tasks.map((task) => (
-                          <tr key={task.id}>
-                            <td className="task-name-cell">
-                              <div className="task-name">{task.name}</div>
-                              <div className="task-sub muted">{task.description}</div>
-                            </td>
-
-                            <td>{task.assignedWorkers?.join(", ") || "—"}</td>
-
-                            <td className="clickable" onClick={() => openWorkersModal(task)}>
-                              {task.assignedWorkers.length === 0
-                                ? "No workers"
-                                : task.assignedWorkers.length <= 3
-                                  ? task.assignedWorkers.join(", ")
-                                  : `${task.assignedWorkers[0]}, ${task.assignedWorkers[1]} and ${task.assignedWorkers.length - 2} others`}
-                            </td>
-
-                            <td className="clickable" onClick={() => setTaskMaterialsView(task)}>
-                              {task.materials.length === 0
-                                ? "No materials"
-                                : task.materials.length <= 2
-                                  ? task.materials.map((m) => m.name).join(", ")
-                                  : `${task.materials[0].name}, ${task.materials[1].name} and ${task.materials.length - 2} more`}
-                            </td>
-
-                            <td>{task.due}</td>
-
-                            <td>
-                              <span
-                                className={`status-pill ${task.status === "Completed" ? "completed" : task.status === "InProgress" ? "inprogress" : "pending"
-                                  }`}
-                              >
-                                {task.status}
-                              </span>
-                            </td>
-
-                            <td>
-                              <button className="tt-small-btn" onClick={() => openAssignWorker(task)}>
-                                Assign Worker
-                              </button>
-                              <button className="tt-small-btn outline" onClick={() => setSelectedTaskMaterials(task)}>
-                                Assign Materials
-                              </button>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                )}
-              </div>
+              <TasksTab
+                tasks={tasks}
+                loadingTasks={loadingTasks}
+                openAssignWorker={openAssignWorker}
+                openWorkersModal={openWorkersModal}
+                setSelectedTaskMaterials={setSelectedTaskMaterials}
+              />
             )}
 
-            {activeTab === "Work Logs" && <div className="muted">Work logs coming soon.</div>}
+            {activeTab === "Work Logs" && (
+              <WorkLogsTab logs={workerLogs} loading={loadingLogs} />
+            )}
 
-            {/* MATERIALS TAB - Card Grid Style */}
             {activeTab === "Materials" && (
-              <div className="tt-materials-wrap">
-                <div className="materials-header">
-                  <h2>Project Materials</h2>
-                  <p className="muted">Manage and increase your project materials quickly.</p>
-                </div>
-
-                {loadingProject && project.materials.length === 0 ? <div className="muted">Loading materials...</div> : null}
-
-                <div className="materials-grid">
-                  {(project.materials || []).length === 0 ? (
-                    <div className="muted">No materials yet.</div>
-                  ) : (
-                    (project.materials || []).map((m) => (
-                      <div className="material-card" key={m.id}>
-                        <div className="material-card-top">
-                          <div className="material-name">{m.name}</div>
-                          <div className="material-unit">{m.unit ? m.unit : ""}</div>
-                        </div>
-
-                        <div className="material-qty">
-                          <div className="qty-label">Quantity</div>
-                          <div className="qty-value">{m.quantity ?? 0}</div>
-                        </div>
-
-                        <div className="material-available">
-                          <div className="small muted">Available</div>
-                          <div className="avail-value">{m.availableQuantity ?? m.quantity ?? 0}</div>
-                        </div>
-
-                        <div className="material-actions">
-                          <button className="tt-small-btn" onClick={() => openIncreaseModal(m)} title="Increase quantity">
-                            <FiPlusCircle /> Increase
-                          </button>
-
-                          <button
-                            className="tt-small-btn outline"
-                            onClick={() => {
-                              // quick +1 if you still want a quick action
-                              confirmIncrease(m.name, 1);
-                            }}
-                            title="Quick +1"
-                          >
-                            +1
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
+              <MaterialsTab
+                projectMaterials={project.materials}
+                loadingProject={loadingProject}
+                openIncreaseModal={openIncreaseModal}
+                confirmIncrease={confirmIncrease}
+              />
             )}
 
-            {activeTab === "Attendance" && <div className="muted">Attendance coming soon.</div>}
+            {activeTab === "Attendance" && <AttendanceTab />}
           </div>
         </div>
       </main>
-
       {/* Modals */}
       {isAddTaskOpen && (
         <AddTaskModal
@@ -694,12 +631,10 @@ const ProjectDashboard = () => {
 
       {taskMaterialsView && <TaskMaterialsModal task={taskMaterialsView} project={project} onClose={() => setTaskMaterialsView(null)} />}
 
-      {/* Increase material modal (your separate component file) */}
       {showIncreaseModal && materialToIncrease && (
         <IncreaseMaterialModal material={materialToIncrease} onClose={closeIncreaseModal} onIncrease={confirmIncrease} />
       )}
     </div>
   );
 };
-
 export default ProjectDashboard;

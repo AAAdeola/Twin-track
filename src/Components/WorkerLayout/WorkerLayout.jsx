@@ -1,6 +1,7 @@
 // WorkerLayout.jsx
 import React, { useState, useEffect } from "react";
-import { FiMenu, FiX } from "react-icons/fi";
+import { FiMenu, FiX, FiLogOut } from "react-icons/fi";
+import { logout } from "../../utils/auth";
 
 export default function WorkerLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -43,7 +44,6 @@ export default function WorkerLayout({ children }) {
       >
         <div style={styles.sidebarHeader}>
           <h2 style={styles.logo}>Worker</h2>
-
           {isMobile && (
             <FiX
               size={26}
@@ -53,12 +53,21 @@ export default function WorkerLayout({ children }) {
           )}
         </div>
 
+        {/* ===== NAV LINKS ===== */}
         <nav style={styles.navContainer}>
           <a href={`/WorkerDashboard/${userId}`} style={styles.navItem}>Dashboard</a>
           <a href={`/worker/projects/${userId}`} style={styles.navItem}>My Projects</a>
           <a href={`/worker/tasks/${userId}`} style={styles.navItem}>My Tasks</a>
           <a href={`/worker/history/${userId}`} style={styles.navItem}>History</a>
         </nav>
+
+        {/* ===== LOGOUT BUTTON AT BOTTOM ===== */}
+        <div style={styles.logoutContainer}>
+          <button style={styles.logoutButton} onClick={logout}>
+            <FiLogOut style={{ marginRight: "8px" }} />
+            Logout
+          </button>
+        </div>
       </aside>
 
       {/* ===== MOBILE OVERLAY ===== */}
@@ -102,7 +111,9 @@ const styles = {
     padding: "30px 20px",
     zIndex: 3000,
     transition: "transform 0.3s ease",
-    overflowY: "auto",   // ✅ sidebar ALWAYS scrolls internally
+    display: "flex",
+    flexDirection: "column",
+    overflowY: "auto",   // ✅ sidebar scrolls internally
   },
 
   sidebarHeader: {
@@ -118,6 +129,7 @@ const styles = {
   },
 
   navContainer: {
+    flexGrow: 1, // fills space above logout
     marginTop: "10px",
   },
 
@@ -127,6 +139,24 @@ const styles = {
     color: "#D1D5DB",
     textDecoration: "none",
     borderBottom: "1px solid #374151",
+  },
+
+  /* ===== LOGOUT ===== */
+  logoutContainer: {
+    marginTop: "auto",
+    paddingTop: "20px",
+  },
+
+  logoutButton: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    background: "none",
+    border: "none",
+    color: "#f87171", // red color
+    cursor: "pointer",
+    fontWeight: "bold",
+    fontSize: "14px",
   },
 
   /* ===== MAIN CONTENT ===== */
