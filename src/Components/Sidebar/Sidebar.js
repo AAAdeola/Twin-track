@@ -1,18 +1,12 @@
 import React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import {
-  FiHome,
-  FiBriefcase,
-  FiUsers,
-  FiUserCheck,
-  FiSettings,
-} from "react-icons/fi";
+import { FiHome, FiBriefcase, FiUsers, FiUserCheck, FiSettings, FiLogOut } from "react-icons/fi";
+import { logout } from "../../utils/auth";
 import "./Sidebar.css";
 
 const Sidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
-
   const userId = localStorage.getItem("userId");
 
   const menuItems = [
@@ -31,9 +25,7 @@ const Sidebar = () => {
         {menuItems.map((item) => (
           <li
             key={item.path}
-            className={`tt-menu-item ${
-              location.pathname === item.path ? "active" : ""
-            }`}
+            className={`tt-menu-item ${location.pathname === item.path ? "active" : ""}`}
             onClick={() => navigate(item.path)}
           >
             {item.icon}
@@ -41,6 +33,11 @@ const Sidebar = () => {
           </li>
         ))}
       </ul>
+
+      <div className="tt-logout" onClick={logout}>
+        <FiLogOut />
+        <span>Logout</span>
+      </div>
     </aside>
   );
 };

@@ -8,8 +8,9 @@ import TaskSubmissionModal from "../TaskSubmissionModal/TaskSubmissionModal";
 import "./WorkerTasks.css";
 
 export default function WorkerTasksPage() {
-    const { workerId: paramWorkerId } = useParams();
+    const { workerId: paramWorkerId, projectId: paramProjectId } = useParams();
     const workerId = paramWorkerId || localStorage.getItem("userId");
+    const projectId = paramProjectId;
     const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
     const token = localStorage.getItem("authToken");
 
@@ -20,7 +21,6 @@ export default function WorkerTasksPage() {
     const [openRemainingModal, setOpenRemainingModal] = useState(false);
     const [openTaskSubmissionModal, setOpenTaskSubmissionModal] = useState(false);
     const [currentTaskToSubmit, setCurrentTaskToSubmit] = useState(null);
-
     const [modalContext, setModalContext] = useState({
         task: null,
         materials: [],
@@ -36,7 +36,8 @@ export default function WorkerTasksPage() {
     useEffect(() => {
         if (!workerId || !token) return;
         loadAll();
-    }, [workerId, token]);
+        // eslint-disable-next-line
+    }, [workerId, token, projectId]);
 
     async function loadAll() {
         setLoading(true);
@@ -50,7 +51,10 @@ export default function WorkerTasksPage() {
                 return;
             }
 
-            const workerTasks = data.data || [];
+            let workerTasks = data.data || [];
+            if (projectId) {
+                workerTasks = workerTasks.filter((t) => t.projectId === projectId);
+            }
             setTasks(workerTasks);
 
             const projectIds = [...new Set(workerTasks.map((t) => t.projectId).filter(Boolean))];
@@ -58,19 +62,19 @@ export default function WorkerTasksPage() {
 
             for (const pid of projectIds) {
                 try {
+                    // Fetch project assignments
                     const aRes = await fetch(`${API_BASE_URL}/api/v1/projects/${pid}/assignments`, { headers });
                     const aPayload = await aRes.json();
-
                     const supervisorsRaw = aPayload?.data?.supervisors || [];
                     const supervisors = supervisorsRaw.map((s) => ({
                         supervisorId: s.supervisorId ?? s.SupervisorId,
                         role: s.role ?? s.Role,
                         fullName: s.fullName ?? s.FullName ?? "",
                     }));
-
                     const lead = supervisors.find((s) => (s.role || "").toLowerCase() === "lead");
                     const leadSupervisorId = lead?.supervisorId || null;
 
+                    // Fetch tasks for project
                     const tRes = await fetch(`${API_BASE_URL}/api/v1/projects/${pid}/tasks`, { headers });
                     const tPayload = await tRes.json();
                     const projTasks = tPayload?.data || [];
@@ -88,7 +92,6 @@ export default function WorkerTasksPage() {
                             remaining: m.remaining ?? 0,
                             supervisorId: leadSupervisorId,
                         }));
-
                         materialsByTask[taskId] = normalizedMaterials;
 
                         const rawWorkers = pt.assignedWorkers ?? pt.AssignedWorkers ?? [];
@@ -159,7 +162,6 @@ export default function WorkerTasksPage() {
                 headers,
                 body: JSON.stringify(payload),
             });
-
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
                 toast.error(data?.message || "Return failed");
@@ -167,17 +169,14 @@ export default function WorkerTasksPage() {
             }
 
             toast.success("Material returned successfully");
-
             setProjectsData((prev) => {
                 const updated = { ...prev };
                 const taskId = modalContext.task.id;
-
                 if (updated[pid]?.materialsByTask?.[taskId]) {
                     updated[pid].materialsByTask[taskId] = updated[pid].materialsByTask[taskId].filter(
                         (m) => m.id !== material.id
                     );
                 }
-
                 return updated;
             });
 
@@ -194,33 +193,23 @@ export default function WorkerTasksPage() {
 
     const handleSubmitTask = async (taskId, dto) => {
         setSubmittingTask(true);
-
         try {
-            const token = localStorage.getItem("authToken");
-
-            const res = await fetch(
-                `${API_BASE_URL}/api/v1/worker/tasks/${taskId}/submit`,
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`
-                    },
-                    body: JSON.stringify(dto)
-                }
-            );
-
+            const res = await fetch(`${API_BASE_URL}/api/v1/worker/tasks/${taskId}/submit`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(dto),
+            });
             const data = await res.json().catch(() => ({}));
-
             if (!res.ok || !data.isSuccess) {
                 toast.error(data?.message || "Failed to submit task");
                 return;
             }
-
             toast.success("Task submitted successfully!");
             loadAll();
         } catch (err) {
-            console.error("Network error submitting task", err);
             toast.error("Network error submitting task");
         } finally {
             setSubmittingTask(false);
@@ -268,16 +257,16 @@ export default function WorkerTasksPage() {
             <div className="wt-page">
                 <header className="wt-header">
                     <h2>My Tasks</h2>
-                    <p className="muted">Tasks assigned to you grouped by project</p>
+                    <p className="muted">Tasks assigned to you under this project</p>
                 </header>
 
                 {Object.keys(tasksByProject).length === 0 ? (
                     <p className="muted">No tasks assigned.</p>
                 ) : (
-                    Object.entries(tasksByProject).map(([projectId, list]) => {
-                        const p = projectsData[projectId] ?? {};
+                    Object.entries(tasksByProject).map(([projId, list]) => {
+                        const p = projectsData[projId] ?? {};
                         return (
-                            <section key={projectId} className="wt-project-section">
+                            <section key={projId} className="wt-project-section">
                                 <h3 className="wt-project-title">{p.project?.name}</h3>
                                 {p.supervisors?.length > 0 && (
                                     <p className="wt-supervisors">

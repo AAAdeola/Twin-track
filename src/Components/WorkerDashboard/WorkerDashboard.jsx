@@ -278,9 +278,17 @@ export default function WorkerDashboard() {
               <p>Total Tasks: {tasks.filter((t) => t.projectId === project.id).length}</p>
               <p>Completed: {tasks.filter((t) => t.projectId === project.id && t.status.toLowerCase() === "completed").length}</p>
               <p>Status: {project.status}</p>
-              <button
+              {/* <button
                 className="btn"
                 onClick={() => handleNavigate(`/worker/${currentWorkerId}/tasks`)}
+              >
+                View Tasks
+              </button> */}
+              <button
+                className="btn"
+                onClick={() =>
+                  handleNavigate(`/worker/${currentWorkerId}/project/${project.id}/tasks`)
+                }
               >
                 View Tasks
               </button>
