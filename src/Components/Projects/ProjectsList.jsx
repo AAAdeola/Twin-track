@@ -119,36 +119,6 @@ const ProjectsList = () => {
     ]);
   };
 
-  // ✅ DELETE PROJECT
-  // const handleDelete = async () => {
-  //   if (!projectToDelete) return;
-
-  //   try {
-  //     setDeletingProjectId(projectToDelete.id); // mark as deleting
-
-  //     const res = await fetch(`${API_BASE_URL}/api/v1/projects/${projectToDelete.id}`, {
-  //       method: "DELETE",
-  //       headers: authHeaders(),
-  //     });
-
-  //     if (!res.ok) {
-  //       const data = await res.json().catch(() => null);
-  //       toast.error(data?.message || "Failed to delete project.");
-  //       return;
-  //     }
-
-  //     toast.success(`Project "${projectToDelete.name}" deleted successfully.`);
-  //     setProjects(projects.filter((p) => p.id !== projectToDelete.id));
-  //     setShowDeleteModal(false);
-  //     setProjectToDelete(null);
-  //   } catch (err) {
-  //     console.error(err);
-  //     toast.error("Error deleting project.");
-  //   } finally {
-  //     setDeletingProjectId(null);
-  //   }
-  // };
-
   const handleDelete = async () => {
     if (!projectToDelete) return;
 

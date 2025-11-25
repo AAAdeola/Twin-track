@@ -194,86 +194,83 @@ const SupervisorsList = () => {
           {fetchError && <p className="error-text">Failed to load supervisors.</p>}
 
           {!loading && !fetchError && (
-            <table className="supervisors-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Projects & Tasks</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
+            <div className="table-container">
+              <table className="supervisors-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Projects & Tasks</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
 
-              <tbody>
-                {filteredSupervisors.length > 0 ? (
-                  filteredSupervisors.map((sup) => (
-                    <tr key={sup.supervisorId}>
-                      <td className={sup.suspended ? "suspended" : ""}>
-                        <FiUser /> {sup.fullName}
-                      </td>
-
-                      <td>
-                        {(sup.projects || []).map((project) => {
-                          const key = `${sup.supervisorId}::${project.projectId}`;
-                          const canRemove =
-                            !project.isLead &&
-                            (String(project.createdBy) === loggedInUserId ||
-                              String(sup.supervisorId) === loggedInUserId);
-
-                          return (
-                            <div key={project.projectId} className="project-block">
-                              <strong>
-                                <input
-                                  type="checkbox"
-                                  checked={!!selectedProjects[key]}
-                                  onChange={() =>
-                                    toggleProjectSelect(sup.supervisorId, project.projectId)
-                                  }
-                                  disabled={!canRemove}
-                                />{" "}
-                                {project.projectName} {project.isLead && "(Lead)"}
-                              </strong>
-
-                              <ul>
-                                {(project.tasks || []).map((task) => (
-                                  <li key={task.id}>{task.name}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          );
-                        })}
-                      </td>
-
-                      <td className="actions">
-                        <button className="remove-btn" onClick={() => handleRemoveClick(sup)}>
-                          <FiTrash2 /> Remove
-                        </button>
-
-                        <button
-                          className={`suspend-btn ${sup.suspended ? "retain" : "suspend"}`}
-                          onClick={() => toggleSuspend(sup)}
-                        >
-                          {sup.suspended ? (
-                            <>
-                              <FiCheck /> Retain
-                            </>
-                          ) : (
-                            <>
-                              <FiSlash /> Suspend
-                            </>
-                          )}
-                        </button>
+                <tbody>
+                  {filteredSupervisors.length > 0 ? (
+                    filteredSupervisors.map((sup) => (
+                      <tr key={sup.supervisorId}>
+                        <td className={sup.suspended ? "suspended" : ""}>
+                          <FiUser /> {sup.fullName}
+                        </td>
+                        <td>
+                          {(sup.projects || []).map((project) => {
+                            const key = `${sup.supervisorId}::${project.projectId}`;
+                            const canRemove =
+                              !project.isLead &&
+                              (String(project.createdBy) === loggedInUserId ||
+                                String(sup.supervisorId) === loggedInUserId);
+                            return (
+                              <div key={project.projectId} className="project-block">
+                                <strong>
+                                  <input
+                                    type="checkbox"
+                                    checked={!!selectedProjects[key]}
+                                    onChange={() =>
+                                      toggleProjectSelect(sup.supervisorId, project.projectId)
+                                    }
+                                    disabled={!canRemove}
+                                  />{" "}
+                                  {project.projectName} {project.isLead && "(Lead)"}
+                                </strong>
+                                <ul>
+                                  {(project.tasks || []).map((task) => (
+                                    <li key={task.id}>{task.name}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            );
+                          })}
+                        </td>
+                        <td className="actions">
+                          <button className="remove-btn" onClick={() => handleRemoveClick(sup)}>
+                            <FiTrash2 /> Remove
+                          </button>
+                          <button
+                            className={`suspend-btn ${sup.suspended ? "retain" : "suspend"}`}
+                            onClick={() => toggleSuspend(sup)}
+                          >
+                            {sup.suspended ? (
+                              <>
+                                <FiCheck /> Retain
+                              </>
+                            ) : (
+                              <>
+                                <FiSlash /> Suspend
+                              </>
+                            )}
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="3" className="no-results">
+                        No supervisors found.
                       </td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="3" className="no-results">
-                      No supervisors found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  )}
+                </tbody>
+              </table>
+            </div>
           )}
         </section>
 
