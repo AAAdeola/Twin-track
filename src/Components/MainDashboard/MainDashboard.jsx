@@ -46,6 +46,9 @@ const MainDashboard = ({ supervisorName = "Supervisor" }) => {
 
   const [analyticsData, setAnalyticsData] = useState([]);
   const [timeFilter, setTimeFilter] = useState("last-month");
+  const [groupBy, setGroupBy] = useState("day");
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
 
   const token = localStorage.getItem("authToken");
   const userId = localStorage.getItem("userId");
@@ -54,7 +57,7 @@ const MainDashboard = ({ supervisorName = "Supervisor" }) => {
     if (!token) return;
 
     fetchAllDashboardData();
-  }, [timeFilter, token]);
+  }, [timeFilter, groupBy, token]);
 
   const fetchAllDashboardData = () => {
     fetchWorkersCount();
@@ -146,7 +149,7 @@ const MainDashboard = ({ supervisorName = "Supervisor" }) => {
 
       const list = data.data || [];
       setProjects(list);
-
+      console.log("📦 PROJECTS LOADED:", list);
       const supSet = new Set();
 
       let tCount = 0;
@@ -166,7 +169,7 @@ const MainDashboard = ({ supervisorName = "Supervisor" }) => {
               if (id && !s.isLead) supSet.add(String(id));
             });
           }
-        } catch {}
+        } catch { }
       });
 
       const taskPromises = list.map(async (proj) => {
@@ -183,7 +186,7 @@ const MainDashboard = ({ supervisorName = "Supervisor" }) => {
               if (String(task.status).toLowerCase() === "completed") cCount++;
             });
           }
-        } catch {}
+        } catch { }
       });
 
       await Promise.all([...assignmentPromises, ...taskPromises]);
@@ -201,13 +204,28 @@ const MainDashboard = ({ supervisorName = "Supervisor" }) => {
     }
   };
 
-  const fetchAnalytics = async (range) => {
+  const fetchAnalytics = async () => {
     setLoadingAnalytics(true);
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/v1/dashboard/analytics?range=${range}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const filter = {
+        StartDate: timeFilter === "last-week"
+          ? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+          : timeFilter === "last-2-months"
+            ? new Date(new Date().setMonth(new Date().getMonth() - 2))
+            : new Date(new Date().setMonth(new Date().getMonth() - 1)),
+        EndDate: new Date(),
+        GroupBy: groupBy,
+        //GroupBy: groupBy
+      };
+      console.log("📤 FILTER SENT TO BACKEND:", filter);
+      const res = await fetch(`${API_BASE_URL}/api/v1/dashboard/analytics`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(filter),
+      });
 
       const data = await res.json();
 
@@ -216,9 +234,31 @@ const MainDashboard = ({ supervisorName = "Supervisor" }) => {
         toast.error("Failed to load analytics.");
         return;
       }
+      console.log("RAW ANALYTICS RESPONSE:", data);
+      console.log("📊 ANALYTICS DATA RECEIVED:", data.data);
 
-      setAnalyticsData(data.data);
-    } catch {
+      // Map your API data to chart-friendly format
+      const chartData = data.data.map((d) => ({
+        label: d.label,
+        projectsCreated: d.projectsCreated,
+        tasksCreated: d.tasksCreated,
+        projectsSubmitted: d.projectsSubmitted,
+        tasksSubmitted: d.tasksSubmitted,
+        projectsApproved: d.projectsApproved,
+        tasksApproved: d.tasksApproved,
+        projectsRejected: d.projectsRejected,
+        tasksRejected: d.tasksRejected,
+        workerLogsCreated: d.workerLogsCreated,
+        workerLogsSubmitted: d.workerLogsSubmitted,
+        workerLogsApproved: d.workerLogsApproved,
+        workerLogsRejected: d.workerLogsRejected,
+      }))
+      .sort((a, b) => new Date(a.label) - new Date(b.label));
+
+      setAnalyticsData(chartData);
+      setErrorAnalytics(false);
+    } catch (err) {
+      console.error(err);
       setErrorAnalytics(true);
       toast.error("Failed to load analytics.");
     } finally {
@@ -335,6 +375,16 @@ const MainDashboard = ({ supervisorName = "Supervisor" }) => {
             <option value="last-month">Last 30 Days</option>
             <option value="last-2-months">Last 2 Months</option>
           </select>
+
+          <select
+            value={groupBy}
+            onChange={(e) => setGroupBy(e.target.value)}
+            style={{ marginLeft: "10px" }}
+          >
+            <option value="day">Day</option>
+            <option value="week">Week</option>
+            <option value="month">Month</option>
+          </select>
         </div>
 
         {/* ✅ ANALYTICS SECTION */}
@@ -346,15 +396,26 @@ const MainDashboard = ({ supervisorName = "Supervisor" }) => {
           ) : errorAnalytics ? (
             <div className="analytics-error">Unable to load analytics.</div>
           ) : (
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={400}>
               <LineChart data={analyticsData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="label" />
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Line type="monotone" dataKey="projects" stroke="#2563eb" />
-                <Line type="monotone" dataKey="tasks" stroke="#10b981" />
+
+                <Line type="monotone" dataKey="projectsCreated" stroke="#2563eb" name="Projects Created" />
+                <Line type="monotone" dataKey="tasksCreated" stroke="#10b981" name="Tasks Created" />
+                <Line type="monotone" dataKey="projectsSubmitted" stroke="#f59e0b" name="Projects Submitted" />
+                <Line type="monotone" dataKey="tasksSubmitted" stroke="#84cc16" name="Tasks Submitted" />
+                <Line type="monotone" dataKey="projectsApproved" stroke="#0ea5e9" name="Projects Approved" />
+                <Line type="monotone" dataKey="tasksApproved" stroke="#14b8a6" name="Tasks Approved" />
+                <Line type="monotone" dataKey="projectsRejected" stroke="#ef4444" name="Projects Rejected" />
+                <Line type="monotone" dataKey="tasksRejected" stroke="#b91c1c" name="Tasks Rejected" />
+                <Line type="monotone" dataKey="workerLogsCreated" stroke="#6366f1" name="Logs Created" />
+                <Line type="monotone" dataKey="workerLogsSubmitted" stroke="#f59e0b" name="Logs Submitted" />
+                <Line type="monotone" dataKey="workerLogsApproved" stroke="#10b981" name="Logs Approved" />
+                <Line type="monotone" dataKey="workerLogsRejected" stroke="#ef4444" name="Logs Rejected" />
               </LineChart>
             </ResponsiveContainer>
           )}
