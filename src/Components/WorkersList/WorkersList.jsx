@@ -44,7 +44,7 @@ const WorkersList = () => {
         `${API_BASE_URL}/api/v1/worker/supervisor/${supervisorId}/assigned`,
         { headers: authHeaders() }
       );
-
+   
       const payload = await res.json();
       console.log("🔥 RAW WORKERS RESPONSE:", payload);
 
